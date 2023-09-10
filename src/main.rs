@@ -4,7 +4,7 @@ use clap::{Args, Parser, Subcommand};
 #[derive(Parser)]
 #[clap(
     name = "pass",
-    version = "0.1.0",
+    version,
     author = "Ishan",
     about = "A easy-to-use CLI password manager and generator"
 )]
@@ -32,6 +32,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    Init(InitArgs),
+
     /// Make a new password
     Add(AddArgs),
 
@@ -61,7 +63,28 @@ enum Commands {
 }
 
 #[derive(Args)]
-struct AddArgs {}
+struct InitArgs {}
+
+#[derive(Args)]
+struct AddArgs {
+    /// Username of the account
+    // #[clap(short = 'n', long = "name")]
+    username: String,
+
+    /// Password of the account
+    // #[clap(short = 'p', long = "password")]
+    password: String,
+
+    /// URL of the site for which the password is
+    // #[clap(short = 'u', long = "url")]
+    #[clap(default_value = "")]
+    url: String,
+
+    /// Notes for the account
+    // #[clap(short = 'm', long = "msg", required = false)]
+    #[clap(default_value = "")]
+    notes: String,
+}
 
 #[derive(Args)]
 struct RemoveArgs {}
@@ -93,15 +116,14 @@ fn main() {
     println!("Welcome to the pass!");
 
     let args = Cli::parse();
-    // println!("Username: {}", args.username);
-    // println!("Password: {}", args.password);
-    // println!("URL: {}", args.url);
-    // println!("Notes: {}", args.notes);
 
     match &args.commands.unwrap() {
+        Commands::Init(args) => {}
         Commands::Add(args) => {
-            // println!("Username: {}", args.username);
-            // println!("Password: {}", args.password);
+            println!("Username: {}", args.username);
+            println!("Password: {}", args.password);
+            println!("URL: {}", args.url);
+            println!("Notes: {}", args.notes);
         }
         Commands::Remove(args) => {}
         Commands::Update(args) => {}
