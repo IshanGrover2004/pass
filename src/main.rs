@@ -1,7 +1,9 @@
 // Clap ->  , Scrypt -> For Passsword Verification ,
 // Make uuid whenever any new password added for
 
+use bcrypt::{hash, verify, BcryptError, DEFAULT_COST};
 use clap::{Args, Parser, Subcommand};
+use passwords::PasswordGenerator;
 
 #[derive(Parser)]
 #[clap(
@@ -132,18 +134,36 @@ fn main() {
                 return;
             }
 
+            // Hashing the master Password
+            let hashed_master_password = hash(&master_password, DEFAULT_COST).unwrap();
+
             // Storing the master password
-            let master_password_struct = InitArgs { master_password };
+            // let master_password_struct = InitArgs {
+            //     master_password: hashed_master_password,
+            // };
             println!("Initializing pass...");
+
+            println!("\nMaster Password: {}", master_password);
+            println!("Hashed Master password: {}", hashed_master_password);
+
             println!(
-                "Master password: {}",
-                master_password_struct.master_password
+                "\nPassword Verify: {}",
+                is_correct_master_password(&master_password, &hashed_master_password).unwrap()
             );
         }
 
         Commands::Add(args) => {
             println!("Username: {}", args.username);
-            println!("Password: {:?}", args.password); // Option value
+
+            // Generating a password if not provided by user
+            if args.password.is_none() {
+                // args.password = Some(generate_password());
+                // println!("Password: {:?}", args.password);
+                println!("Password: {:?}", generate_password());
+            } else {
+                println!("Password: {:?}", args.password);
+            }
+
             println!("URL: {}", args.url);
             println!("Notes: {}", args.notes);
         }
@@ -176,6 +196,21 @@ fn main() {
     // TODO: Add file handling for storing passwords
 }
 
+fn generate_password() -> String {
+    let generator = PasswordGenerator {
+        length: 12,
+        numbers: true,
+        lowercase_letters: true,
+        uppercase_letters: true,
+        symbols: true,
+        spaces: true,
+        exclude_similar_characters: false,
+        strict: true,
+    };
+
+    generator.generate_one().unwrap().to_string()
+}
+
 // Function to verify the master password is strong enough
 fn is_strong_password(password: &mut String) -> bool {
     *password = password.trim().to_string();
@@ -195,6 +230,16 @@ fn is_strong_password(password: &mut String) -> bool {
     return has_lowercase && has_uppercase && has_digit && has_special;
 }
 
+// Check if master password is correct
+fn is_correct_master_password(
+    master_password: &str,
+    hashed_master_password: &str,
+) -> Result<bool, BcryptError> {
+    match verify(&master_password, &hashed_master_password) {
+        Ok(is_correct) => Ok(true),
+        Err(err) => Err(err),
+    }
+}
 /* Imp Notes:
  * For custom name of project -> cargo install --path . && pass
  */
