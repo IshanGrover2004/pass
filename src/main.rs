@@ -1,9 +1,12 @@
 // Clap ->  , Scrypt -> For Passsword Verification ,
 // Make uuid whenever any new password added for
+//
+pub mod pass;
 
 use bcrypt::{hash, verify, BcryptError, DEFAULT_COST};
 use clap::{Args, Parser, Subcommand};
-use passwords::PasswordGenerator;
+// We can generate the password, make our own generator
+// use passwords::PasswordGenerator;
 
 #[derive(Parser)]
 #[clap(
@@ -197,18 +200,19 @@ fn main() {
 }
 
 fn generate_password() -> String {
-    let generator = PasswordGenerator {
-        length: 12,
-        numbers: true,
-        lowercase_letters: true,
-        uppercase_letters: true,
-        symbols: true,
-        spaces: true,
-        exclude_similar_characters: false,
-        strict: true,
-    };
-
-    generator.generate_one().unwrap().to_string()
+    // let generator = PasswordGenerator {
+    //     length: 12,
+    //     numbers: true,
+    //     lowercase_letters: true,
+    //     uppercase_letters: true,
+    //     symbols: true,
+    //     spaces: true,
+    //     exclude_similar_characters: false,
+    //     strict: true,
+    // };
+    //
+    // generator.generate_one().unwrap().to_string()
+    String::new()
 }
 
 // Function to verify the master password is strong enough
