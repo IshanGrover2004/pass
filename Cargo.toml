@@ -6,4 +6,3 @@ edition = "2021"
 [dependencies]
 bcrypt = "0.15.0"
 clap = { version = "4.4.2" , features = ["derive"]}
-passwords = "3.1.16"
