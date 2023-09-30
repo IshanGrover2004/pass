@@ -4,5 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.75"
 bcrypt = "0.15.0"
+bincode = "1.3.3"
 clap = { version = "4.4.2" , features = ["derive"]}
+colour = "0.7.0"
+rson_rs = "0.2.1"
+serde-encrypt = "0.7.0"
