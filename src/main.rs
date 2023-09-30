@@ -2,6 +2,7 @@
 // Make uuid whenever any new password added for
 //
 pub mod pass;
+pub mod store;
 
 use bcrypt::{hash, verify, BcryptError, DEFAULT_COST};
 use clap::{Args, Parser, Subcommand};
@@ -40,18 +41,6 @@ enum Commands {
 
     /// Get a password
     Get(GetArgs),
-    //
-    // /// Login to the pass
-    // Login(LoginArgs),
-    //
-    // /// Logout from the pass
-    // Logout(LogoutArgs),
-    //
-    // /// Create a new user
-    // CreateUser(CreateUserArgs),
-    //
-    // /// Remove a existing user
-    // RemoveUser(RemoveUserArgs),
 }
 
 #[derive(Args)]
@@ -63,6 +52,10 @@ struct InitArgs {
 
 #[derive(Args)]
 struct AddArgs {
+    /// Master password required for authentication
+    #[clap(required = false, default_value = "")]
+    master_password: String,
+
     /// Username/email of the account
     #[clap(short = 'n', long = "name")]
     username: String,
@@ -82,6 +75,10 @@ struct AddArgs {
 
 #[derive(Args)]
 struct RemoveArgs {
+    /// Master password required for authentication
+    #[clap(required = false, default_value = "")]
+    master_password: String,
+
     /// Username/email of the account
     // #[clap(short = 'n', long = "name")]
     username: String,
@@ -89,32 +86,31 @@ struct RemoveArgs {
 
 #[derive(Args)]
 struct UpdateArgs {
+    /// Master password required for authentication
+    #[clap(required = false, default_value = "")]
+    master_password: String,
+
     /// Username/email of the account
     // #[clap(short = 'n', long = "name")]
     username: String,
 }
 
 #[derive(Args)]
-struct ListArgs {}
+struct ListArgs {
+    /// Master password required for authentication
+    #[clap(required = false, default_value = "")]
+    master_password: String,
+}
 
 #[derive(Args)]
 struct GetArgs {
+    // /// Master password required for authentication
+    // #[clap(default_value = "")]
+    // master_password: String,
     /// Username/email of the account
     // #[clap(short = 'n', long = "name")]
     username: String,
 }
-//
-// #[derive(Args)]
-// struct LoginArgs {}
-//
-// #[derive(Args)]
-// struct LogoutArgs {}
-//
-// #[derive(Args)]
-// struct CreateUserArgs {}
-//
-// #[derive(Args)]
-// struct RemoveUserArgs {}
 
 fn main() {
     // Making a safe & secure, easy to use password manager and generator using clap and bcrypt
@@ -124,19 +120,8 @@ fn main() {
 
     match &args.commands.unwrap() {
         Commands::Init(_) => {
-            // Taking the master password from the user
-            println!("Enter Master Password: ");
-            let mut master_password = String::new();
-            std::io::stdin()
-                .read_line(&mut master_password)
-                .expect("Coudn't read Master Password");
-
-            // Check if the password is strong enough
-            if !is_strong_password(&mut master_password) {
-                println!("Password is not strong enough!");
-                return;
-            }
-
+            store::initialise_pass();
+            /*
             // Hashing the master Password
             let hashed_master_password = hash(&master_password, DEFAULT_COST).unwrap();
 
@@ -152,7 +137,7 @@ fn main() {
             println!(
                 "\nPassword Verify: {}",
                 is_correct_master_password(&master_password, &hashed_master_password).unwrap()
-            );
+            );*/
         }
 
         Commands::Add(args) => {
@@ -213,25 +198,6 @@ fn generate_password() -> String {
     //
     // generator.generate_one().unwrap().to_string()
     String::new()
-}
-
-// Function to verify the master password is strong enough
-fn is_strong_password(password: &mut String) -> bool {
-    *password = password.trim().to_string();
-
-    // Check if the password length is at least 8 characters
-    if password.len() < 8 {
-        return false;
-    }
-
-    let has_lowercase = password.chars().any(|c| c.is_ascii_lowercase());
-    let has_uppercase = password.chars().any(|c| c.is_ascii_uppercase());
-    let has_digit = password.chars().any(|c| c.is_ascii_digit());
-    let has_special = password
-        .chars()
-        .any(|c| !c.is_alphanumeric() && !c.is_whitespace());
-
-    return has_lowercase && has_uppercase && has_digit && has_special;
 }
 
 // Check if master password is correct
