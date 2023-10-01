@@ -1,18 +1,22 @@
-use anyhow::Context;
+use anyhow::{Context, Ok};
+use bcrypt::{hash, verify, BcryptError};
 
 // Function to initialise PASS
-pub fn initialise_pass() {
+pub fn initialise_pass() -> anyhow::Result<()> {
     // Check for master password already existed?
     if is_path_exist("/home/tan/.local/share/.pass/pass.txt") {
         colour::green!("Pass already initialised!");
-        return;
+        return Ok(());
     }
 
     // If pass not initialised -> then initialise one
-    std::fs::create_dir("/home/tan/.local/share/.pass").context("Error in creating .pass folder");
+    std::fs::create_dir("/home/tan/.local/share/.pass")
+        .context("Error in creating .pass folder")?;
     let master_password = ask_master_password();
     std::fs::write("/home/tan/.local/share/.pass/pass.txt", master_password)
-        .context("Error in writing password in .pass/pass.txt");
+        .context("Error in writing password in .pass/pass.txt")?;
+
+    Ok(())
 }
 
 // To check any path exist?
@@ -63,4 +67,15 @@ pub fn read_master_password() -> String {
     std::fs::read_to_string("/home/tan/.local/share/.pass/pass.txt")
         .context("Unable to read master password from .pass")
         .unwrap()
+}
+
+// Check if master password is correct
+fn is_correct_master_password(master_password: &str) -> Result<bool, BcryptError> {
+    let hashed_master_password =
+        std::fs::read_to_string("/home/tan/.local/share/.pass/pass.txt").unwrap();
+
+    match verify(&master_password, &hashed_master_password) {
+        std::result::Result::Ok(is_correct) => std::result::Result::Ok(is_correct),
+        Err(err) => Err(err),
+    }
 }
