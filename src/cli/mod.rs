@@ -1,12 +1,15 @@
+// Modules required to make
 pub mod args;
+pub mod commands;
 
-use clap::Parser;
-
+// Importing...
 use crate::{
     cli::args::{Cli, Commands},
     store::pass,
 };
+use clap::Parser;
 
+// Run the CLI
 pub fn run_cli() {
     // Parsing the command line arguments into Cli struct
     let args = Cli::parse();
@@ -66,5 +69,11 @@ pub fn run_cli() {
         Commands::Get(args) => {
             println!("Password for username ");
         }
-    }
+
+        Commands::Gen(args) => {
+            // Generate a random password
+            let my_password = args.generate_password();
+            println!("{my_password}");
+        }
+    };
 }

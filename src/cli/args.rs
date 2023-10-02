@@ -1,7 +1,7 @@
+// Importing...
 use clap::{Args, Parser, Subcommand};
-// We can generate the password, make our own generator
-// use passwords::PasswordGenerator;
 
+// CLI Design
 #[derive(Parser)]
 #[clap(
     name = "pass",
@@ -34,6 +34,9 @@ pub enum Commands {
 
     /// Get a password
     Get(GetArgs),
+
+    /// Generate a password
+    Gen(GenArgs),
 }
 
 #[derive(Args)]
@@ -100,7 +103,15 @@ pub struct GetArgs {
     // /// Master password required for authentication
     // #[clap(default_value = "")]
     // master_password: String,
+    //
     /// Username/email of the account
     // #[clap(short = 'n', long = "name")]
     username: String,
+}
+
+#[derive(Args)]
+pub struct GenArgs {
+    /// Length of generated password
+    #[clap(default_value_t = 12)]
+    pub length: usize,
 }
