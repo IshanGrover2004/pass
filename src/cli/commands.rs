@@ -6,7 +6,7 @@ impl GenArgs {
         const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                             abcdefghijklmnopqrstuvwxyz\
                             0123456789)(*&^%$#@!~";
-        let password_len: usize = self.length;
+        let password_len: u8 = self.length;
         let mut rng = rand::thread_rng();
 
         let password: String = (0..password_len)
