@@ -7,6 +7,7 @@ use crate::{
     cli::args::{Cli, Commands},
     store::pass,
 };
+use anyhow::Context;
 use clap::Parser;
 
 // Run the CLI
@@ -16,24 +17,9 @@ pub fn run_cli() {
 
     match &args.commands.unwrap() {
         Commands::Init(_) => {
-            pass::initialise_pass();
-            /*
-            // Hashing the master Password
-            let hashed_master_password = hash(&master_password, DEFAULT_COST).unwrap();
-
-            // Storing the master password
-            // let master_password_struct = InitArgs {
-            //     master_password: hashed_master_password,
-            // };
-            println!("Initializing pass...");
-
-            println!("\nMaster Password: {}", master_password);
-            println!("Hashed Master password: {}", hashed_master_password);
-
-            println!(
-                "\nPassword Verify: {}",
-                is_correct_master_password(&master_password, &hashed_master_password).unwrap()
-            );*/
+            pass::MasterPassword::init()
+                .context("Initialisation failed!!")
+                .unwrap();
         }
 
         Commands::Add(args) => {
