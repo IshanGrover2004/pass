@@ -113,5 +113,5 @@ pub struct GetArgs {
 pub struct GenArgs {
     /// Length of generated password
     #[clap(default_value_t = 12)]
-    pub length: usize,
+    pub length: u8,
 }
