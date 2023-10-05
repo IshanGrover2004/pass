@@ -9,6 +9,8 @@ bcrypt = "0.15.0"
 bincode = "1.3.3"
 clap = { version = "4.4.2", features = ["derive"] }
 colour = "0.7.0"
+once_cell = "1.18.0"
 rand = "0.8.5"
 rson_rs = "0.2.1"
 serde-encrypt = "0.7.0"
+xdg = "2.5.2"

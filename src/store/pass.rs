@@ -57,9 +57,8 @@ impl MasterPassword {
 
     // Change master password
     pub fn change(&self) {
-        let master_password = ask_master_password();
-        let is_correct_master_pass = self.verify(&master_password)
-
+        // let master_password = ask_master_password();
+        // let is_correct_master_pass = self.verify(&master_password)
     }
 
     // Check if master password is correct
