@@ -1,3 +1,6 @@
-pub fn hash(content: String) -> String {
-    bcrypt::hash(content, bcrypt::DEFAULT_COST).unwrap()
+pub fn hash(content: &str) -> Vec<u8> {
+    bcrypt::hash(content, bcrypt::DEFAULT_COST)
+        .unwrap()
+        .as_bytes()
+        .to_vec()
 }
