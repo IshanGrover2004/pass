@@ -32,7 +32,7 @@ impl MasterPassword {
 
         // Take input Master password from user
         let master_password = ask_master_password();
-        let master_password = encrypt::hash(master_password);
+        let master_password = encrypt::hash(&master_password);
 
         // Store master password
         std::fs::write(MASTER_PASSWORD_PATH, &master_password)
@@ -72,28 +72,8 @@ impl MasterPassword {
     }
 }
 
-// Takes input master_password from user
-pub fn ask_master_password() -> String {
-    // Taking the master password from the user
-    colour::cyan!("Enter Master Password: ");
-    let mut master_password = String::new();
-    std::io::stdin()
-        .read_line(&mut master_password)
-        .expect("Coudn't read Master Password");
-
-    // Check if the password is strong enough
-    if !is_strong_password(&mut master_password) {
-        colour::red!("Password is not strong enough!\n");
-        let master_password = ask_master_password();
-        return master_password;
-    }
-    master_password
-}
-
 // Function to verify the master password is strong enough
-pub fn is_strong_password(password: &mut String) -> bool {
-    *password = password.trim().to_string();
-
+pub fn is_strong_password(password: &str) -> bool {
     // Check if the password length is at least 8 characters
     if password.len() < 8 {
         return false;
