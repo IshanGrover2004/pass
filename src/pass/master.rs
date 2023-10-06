@@ -104,11 +104,11 @@ impl MasterPassword<Uninit> {
             return MasterPassword::prompt();
         }
 
-        Ok(master_password.trim().to_string())
+        Ok(master_password)
     }
 
     pub fn password_input() -> Result<String, MasterPasswordError> {
-        colour::green!("Enter Master password: ");
+        colour::green!("\nEnter Master password: ");
         let mut master_password = String::new();
         std::io::stdin()
             .read_line(&mut master_password)
@@ -141,53 +141,43 @@ impl MasterPassword<Locked> {
     pub fn unlock(self) -> Result<MasterPassword<Unlocked>, MasterPasswordError> {
         std::io::stdout().flush().ok(); // Flush the output to ensure prompt is displayed
 
+        let mut master_pass_prompt: String = String::new();
+        let mut is_prompt_correct = false;
         for _ in [0, 1, 2] {
-            let master_pass_prompt = MasterPassword::password_input()?;
-            let is_prompt_correct: bool = MasterPassword::verify(&master_pass_prompt)?;
-            println!("{}", &is_prompt_correct);
+            // Ask user master_password & verify it is correct?
+            master_pass_prompt = MasterPassword::password_input()?;
+            is_prompt_correct = MasterPassword::verify(&master_pass_prompt)?;
 
-            match is_prompt_correct {
-                true => {
-                    return Ok(MasterPassword {
-                        hash: self.hash,
-                        unlocked_pass: Some(master_pass_prompt.as_bytes().to_vec()),
-                        state: PhantomData::<Unlocked>,
-                    });
-                }
-                false => {
-                    println!("Wrong guess!");
-                    continue;
-                }
-            };
+            if is_prompt_correct {
+                break;
+            } else {
+                colour::red!("Wrong Password");
+            }
         }
-        Err(MasterPasswordError::WrongMasterPassword)
 
-        // let input_pass = MasterPassword::password_input()?;
-        //
-        // let hashed_pass = &self.hash;
-        //
-        // let status: Option<bool> = hashed_pass
-        //     .as_ref()
-        //     .and_then(|pass_hash| Some(*pass_hash == hash(&input_pass)));
-        // println!("{:?}", status);
-        //
-        // match status {
-        //     Some(_) => Ok(MasterPassword {
-        //         hash: None,
-        //         unlocked_pass: Some(input_pass.as_bytes().to_vec()),
-        //         state: PhantomData::<Unlocked>,
-        //     }),
-        //     None => {
-        //         println!("Err");
-        //         Ok(MasterPassword {
-        //             hash: None,
-        //             unlocked_pass: None,
-        //             state: PhantomData::<Unlocked>,
-        //         })
-        //     }
-        // }
+        // If correct promt password => Unlock
+        if is_prompt_correct {
+            return Ok(MasterPassword {
+                hash: self.hash,
+                unlocked_pass: Some(master_pass_prompt.as_bytes().to_vec()),
+                state: PhantomData::<Unlocked>,
+            });
+
+        // Else => Error & Lock
+        } else {
+            Err(MasterPasswordError::WrongMasterPassword)
+        }
     }
 }
+
+// impl MasterPassword<Unlocked> {
+//     pub fn lock(mut self) {
+//         self.state = PhantomData::<Locked>;
+//     }
+//
+//     // To change master password
+//     pub fn change(&mut self) {}
+// }
 
 #[cfg(test)]
 mod test {
