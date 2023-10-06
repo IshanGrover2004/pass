@@ -31,7 +31,7 @@ impl MasterPassword {
         }
 
         // Take input Master password from user
-        let master_password = ask_master_password();
+        let master_password = String::from("shsnbnsnyuwghsi72yh8&@DS"); //ask_master_password();
         let master_password = encrypt::hash(&master_password);
 
         // Store master password
@@ -41,7 +41,7 @@ impl MasterPassword {
         colour::blue!("Pass initialised successfully!! \n");
 
         Ok(MasterPassword {
-            hashed_master_password: master_password,
+            hashed_master_password: String::from("djbjsxKHI*(#H928)"),
         })
     }
 

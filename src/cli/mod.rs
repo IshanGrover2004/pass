@@ -5,9 +5,8 @@ pub mod commands;
 // Importing...
 use crate::{
     cli::args::{Cli, Commands},
-    store::pass,
+    pass::master,
 };
-use anyhow::Context;
 use clap::Parser;
 
 // Run the CLI
@@ -17,9 +16,8 @@ pub fn run_cli() {
 
     match &args.commands.unwrap() {
         Commands::Init(_) => {
-            pass::MasterPassword::init()
-                .context("Initialisation failed!!")
-                .unwrap();
+            let master = master::MasterPassword::new().unwrap();
+            let unlocked = master.unlock();
         }
 
         Commands::Add(args) => {
