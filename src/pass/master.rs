@@ -70,7 +70,6 @@ impl MasterPassword<Uninit> {
                 state: PhantomData::<Locked>,
             })
         }
-        //
         // if not exist create & ask user for master_password
         else {
             if !PASS_DIR_PATH.exists() {
@@ -170,14 +169,21 @@ impl MasterPassword<Locked> {
     }
 }
 
-// impl MasterPassword<Unlocked> {
-//     pub fn lock(mut self) {
-//         self.state = PhantomData::<Locked>;
-//     }
-//
-//     // To change master password
-//     pub fn change(&mut self) {}
-// }
+impl MasterPassword<Unlocked> {
+    pub fn lock(self) -> MasterPassword<Locked> {
+        MasterPassword {
+            hash: self.hash,
+            unlocked_pass: None,
+            state: PhantomData::<Locked>,
+        }
+    }
+
+    // To change master password
+    pub fn change(mut self, password: String) {
+        self.unlocked_pass = Some(password.as_bytes().to_vec());
+        self.hash = Some(hash(&password));
+    }
+}
 
 #[cfg(test)]
 mod test {
