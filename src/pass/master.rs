@@ -40,6 +40,9 @@ pub enum MasterPasswordError {
 
     #[error("{0}")]
     BcryptError(String),
+
+    #[error("Unable to use Console IO: {0}")]
+    IO(#[source] std::io::Error),
 }
 
 // Initialising States & possibilities pub struct Uninit;
@@ -138,34 +141,47 @@ impl MasterPassword<Uninit> {
 impl MasterPassword<Locked> {
     // Unlock the master password
     pub fn unlock(self) -> Result<MasterPassword<Unlocked>, MasterPasswordError> {
-        std::io::stdout().flush().ok(); // Flush the output to ensure prompt is displayed
+        std::io::stdout()
+            .flush()
+            .map_err(|e| MasterPasswordError::IO(e))?; // Flush the output to ensure prompt is displayed
 
-        let mut master_pass_prompt: String = String::new();
-        let mut is_prompt_correct = false;
-        for _ in [0, 1, 2] {
-            // Ask user master_password & verify it is correct?
-            master_pass_prompt = MasterPassword::password_input()?;
-            is_prompt_correct = MasterPassword::verify(&master_pass_prompt)?;
+        // (0..3)
+        //     .map(|_| {
+        //         MasterPassword::password_input().and_then(|master_pass_prompt| {
+        //             MasterPassword::verify(&master_pass_prompt).map(|_| MasterPassword {
+        //                 hash: self.hash.clone(),
+        //                 unlocked_pass: Some(master_pass_prompt.as_bytes().to_vec()),
+        //                 state: PhantomData::<Unlocked>,
+        //             })
+        //         })
+        //     })
+        //     .find(|result| result.is_ok())
+        //     .unwrap_or(Err(MasterPasswordError::WrongMasterPassword))
+        //
 
-            if is_prompt_correct {
-                break;
-            } else {
-                colour::red!("Wrong Password");
-            }
-        }
+        const MAX_ATTEMPT: u32 = 3;
 
-        // If correct promt password => Unlock
-        if is_prompt_correct {
-            return Ok(MasterPassword {
-                hash: self.hash,
-                unlocked_pass: Some(master_pass_prompt.as_bytes().to_vec()),
-                state: PhantomData::<Unlocked>,
-            });
-
-        // Else => Error & Lock
-        } else {
-            Err(MasterPasswordError::WrongMasterPassword)
-        }
+        (0..MAX_ATTEMPT)
+            .find_map(|attempt| {
+                let master_pass_prompt = MasterPassword::password_input().ok()?;
+                MasterPassword::verify(&master_pass_prompt)
+                    .ok()
+                    .map(|is_verified| {
+                        if is_verified {
+                            Some(MasterPassword {
+                                hash: self.hash.clone(),
+                                unlocked_pass: Some(master_pass_prompt.as_bytes().to_vec()),
+                                state: PhantomData::<Unlocked>,
+                            })
+                        } else {
+                            (attempt < MAX_ATTEMPT)
+                                .then(|| colour::red!("Wrong password, Please try again"));
+                            None
+                        }
+                    })
+                    .flatten()
+            })
+            .ok_or(MasterPasswordError::WrongMasterPassword)
     }
 }
 
@@ -182,6 +198,10 @@ impl MasterPassword<Unlocked> {
     pub fn change(mut self, password: String) {
         self.unlocked_pass = Some(password.as_bytes().to_vec());
         self.hash = Some(hash(&password));
+    }
+
+    pub fn check(&self) {
+        println!("{:?}-{:?}", self.hash, self.unlocked_pass);
     }
 }
 
