@@ -21,7 +21,7 @@ const MASTER_PASS_STORE: Lazy<std::path::PathBuf> =
 #[derive(Debug, thiserror::Error)]
 pub enum MasterPasswordError {
     #[error("The master password store file is not readable due to {0}")]
-    UnableToRead(std::io::Error),
+    UnableToRead(#[from] std::io::Error),
 
     #[error("Unable to create dirs for password storage")]
     UnableToCreateDirs(std::io::Error),
@@ -140,24 +140,10 @@ impl MasterPassword<Uninit> {
 // MasterPassword impl for Locked state
 impl MasterPassword<Locked> {
     // Unlock the master password
-    pub fn unlock(self) -> Result<MasterPassword<Unlocked>, MasterPasswordError> {
+    pub fn unlock(&self) -> Result<MasterPassword<Unlocked>, MasterPasswordError> {
         std::io::stdout()
             .flush()
             .map_err(|e| MasterPasswordError::IO(e))?; // Flush the output to ensure prompt is displayed
-
-        // (0..3)
-        //     .map(|_| {
-        //         MasterPassword::password_input().and_then(|master_pass_prompt| {
-        //             MasterPassword::verify(&master_pass_prompt).map(|_| MasterPassword {
-        //                 hash: self.hash.clone(),
-        //                 unlocked_pass: Some(master_pass_prompt.as_bytes().to_vec()),
-        //                 state: PhantomData::<Unlocked>,
-        //             })
-        //         })
-        //     })
-        //     .find(|result| result.is_ok())
-        //     .unwrap_or(Err(MasterPasswordError::WrongMasterPassword))
-        //
 
         const MAX_ATTEMPT: u32 = 3;
 
@@ -186,22 +172,29 @@ impl MasterPassword<Locked> {
 }
 
 impl MasterPassword<Unlocked> {
-    pub fn lock(self) -> MasterPassword<Locked> {
+    pub fn lock(&self) -> MasterPassword<Locked> {
         MasterPassword {
-            hash: self.hash,
+            hash: self.hash.clone(),
             unlocked_pass: None,
             state: PhantomData::<Locked>,
         }
     }
 
     // To change master password
-    pub fn change(mut self, password: String) {
+    pub fn change(&mut self, password: String) -> Result<(), MasterPasswordError> {
         self.unlocked_pass = Some(password.as_bytes().to_vec());
         self.hash = Some(hash(&password));
+        std::fs::write(MASTER_PASS_STORE.to_owned(), self.hash.as_ref().unwrap()).map_err(|e| {
+            return MasterPasswordError::UnableToWriteFile(e);
+        })
     }
 
     pub fn check(&self) {
-        println!("{:?}-{:?}", self.hash, self.unlocked_pass);
+        println!(
+            "{:?}-{:?}",
+            self.hash,
+            String::from_utf8(self.unlocked_pass.clone().unwrap())
+        );
     }
 }
 
