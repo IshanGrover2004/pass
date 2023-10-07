@@ -27,10 +27,13 @@ pub fn run_cli() {
 
         Commands::ChangeMaster => {
             // Wanted to do this-:
-            // let master = MasterPassword::new();
-            // master.unlock();
-            // master.change("Password123@");
-            // master.lock();
+            let master = MasterPassword::new()
+                .map_err(|e| println!("{:?}", e))
+                .unwrap();
+            let mut unlocked = master.unlock().unwrap();
+            unlocked.change("Password123@".to_string());
+            unlocked.check();
+            unlocked.lock();
         }
 
         Commands::Add(args) => {
