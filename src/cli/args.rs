@@ -20,6 +20,9 @@ pub enum Commands {
     /// Initialize the pass
     Init(InitArgs),
 
+    /// Change Master password
+    ChangeMaster,
+
     /// Make a new password
     Add(AddArgs),
 
