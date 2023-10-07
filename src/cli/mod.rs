@@ -4,7 +4,7 @@ pub mod args;
 // Importing...
 use crate::{
     cli::args::{Cli, Commands},
-    pass::master::MasterPassword,
+    pass::master::{MasterPassword, MasterPasswordError},
     store::pass,
 };
 use clap::Parser;
@@ -17,7 +17,12 @@ pub fn run_cli() {
     match args.commands.unwrap() {
         Commands::Init(_) => {
             let master = MasterPassword::new().unwrap();
-            master.unlock().unwrap();
+            match master.unlock() {
+                Err(MasterPasswordError::WrongMasterPassword) => {
+                    colour::red!("Password was wrong, please check the password (or caps lock)");
+                }
+                _ => (),
+            };
         }
 
         Commands::ChangeMaster => {
