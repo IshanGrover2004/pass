@@ -65,7 +65,7 @@ impl MasterPassword<Uninit> {
             let hashed_password = std::fs::read(MASTER_PASS_STORE.to_owned())
                 .map_err(|e| MasterPasswordError::UnableToRead(e))?;
 
-            colour::green!("Pass already initialised!!");
+            colour::green!("Pass already initialised!!\n");
 
             Ok(MasterPassword {
                 hash: Some(hashed_password),
@@ -110,12 +110,12 @@ impl MasterPassword<Uninit> {
     }
 
     pub fn password_input() -> Result<String, MasterPasswordError> {
-        colour::green!("\nEnter Master password: ");
+        colour::green!("Enter Master password: ");
         let mut master_password = String::new();
         std::io::stdin()
             .read_line(&mut master_password)
             .map_err(|e| MasterPasswordError::UnableToReadFromConsole(e))?;
-        Ok(master_password)
+        Ok(master_password.trim().to_owned())
     }
 
     // Check if master password is correct
@@ -150,6 +150,7 @@ impl MasterPassword<Locked> {
         (0..MAX_ATTEMPT)
             .find_map(|attempt| {
                 let master_pass_prompt = MasterPassword::password_input().ok()?;
+                let master_pass_prompt = master_pass_prompt;
                 MasterPassword::verify(&master_pass_prompt)
                     .ok()
                     .map(|is_verified| {
@@ -161,7 +162,7 @@ impl MasterPassword<Locked> {
                             })
                         } else {
                             (attempt < MAX_ATTEMPT)
-                                .then(|| colour::red!("Wrong password, Please try again"));
+                                .then(|| colour::red!("Wrong password, Please try again\n"));
                             None
                         }
                     })
@@ -181,19 +182,27 @@ impl MasterPassword<Unlocked> {
     }
 
     // To change master password
-    pub fn change(&mut self, password: String) -> Result<(), MasterPasswordError> {
+    pub fn change(&mut self) -> Result<(), MasterPasswordError> {
+        let mut password = String::new();
+        colour::green!("Enter new master password: ");
+        std::io::stdin()
+            .read_line(&mut password)
+            .map_err(|e| MasterPasswordError::UnableToReadFromConsole(e))?;
+
+        let password = password.trim();
         self.unlocked_pass = Some(password.as_bytes().to_vec());
         self.hash = Some(hash(&password));
-        std::fs::write(MASTER_PASS_STORE.to_owned(), self.hash.as_ref().unwrap()).map_err(|e| {
-            return MasterPasswordError::UnableToWriteFile(e);
-        })
+        std::fs::write(MASTER_PASS_STORE.to_owned(), self.hash.as_ref().unwrap())
+            .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
+        Ok(())
     }
 
     pub fn check(&self) {
         println!(
-            "{:?}-{:?}",
+            "{:?}-{:?}-{:?}",
             self.hash,
-            String::from_utf8(self.unlocked_pass.clone().unwrap())
+            String::from_utf8(self.unlocked_pass.clone().unwrap()),
+            self.state
         );
     }
 }
