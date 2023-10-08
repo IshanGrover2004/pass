@@ -16,13 +16,7 @@ pub fn run_cli() {
 
     match args.commands.unwrap() {
         Commands::Init(_) => {
-            let master = MasterPassword::new().unwrap();
-            match master.unlock() {
-                Err(MasterPasswordError::WrongMasterPassword) => {
-                    colour::red!("Password was wrong, please check the password (or caps lock)");
-                }
-                _ => (),
-            };
+            MasterPassword::new();
         }
 
         Commands::ChangeMaster => {
@@ -30,9 +24,8 @@ pub fn run_cli() {
             let master = MasterPassword::new()
                 .map_err(|e| println!("{:?}", e))
                 .unwrap();
-            let mut unlocked = master.unlock().unwrap();
-            unlocked.change("Password123@".to_string());
-            unlocked.check();
+            let mut unlocked = master.unlock().map_err(|e| println!("{:?}", e)).unwrap();
+            unlocked.change();
             unlocked.lock();
         }
 
