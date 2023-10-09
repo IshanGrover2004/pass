@@ -13,10 +13,10 @@ const XDG_BASE: Lazy<xdg::BaseDirectories> = Lazy::new(|| {
     xdg::BaseDirectories::with_prefix(APP_NAME).expect("Failed to initialised XDG BaseDirectories")
 });
 
-const PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BASE.get_data_home()); // $HOME/.local/share/.pass
+const PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BASE.get_state_home()); // $HOME/.local/state/.pass
 
 const MASTER_PASS_STORE: Lazy<std::path::PathBuf> =
-    Lazy::new(|| XDG_BASE.place_data_file("master.dat").unwrap()); // $HOME/.local/share/.pass/Master.yml
+    Lazy::new(|| XDG_BASE.place_state_file("master.dat").unwrap()); // $HOME/.local/state/.pass/Master.yml
 
 #[derive(Debug, thiserror::Error)]
 pub enum MasterPasswordError {
