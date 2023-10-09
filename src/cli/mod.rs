@@ -22,11 +22,13 @@ pub fn run_cli() {
         Commands::ChangeMaster => {
             // Wanted to do this-:
             let master = MasterPassword::new()
-                .map_err(|e| println!("{:?}", e))
+                .map_err(|e| eprintln!("{:?}", e))
                 .unwrap();
-            let mut unlocked = master.unlock().map_err(|e| println!("{:?}", e)).unwrap();
+            let mut unlocked = master.unlock().map_err(|e| eprintln!("{:?}", e)).unwrap();
             unlocked.change();
             unlocked.lock();
+
+            colour::green!("Master Password changed successfully...");
         }
 
         Commands::Add(args) => {
