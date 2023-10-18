@@ -15,7 +15,7 @@ const XDG_BASE: Lazy<xdg::BaseDirectories> = Lazy::new(|| {
 
 const PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BASE.get_state_home()); // $HOME/.local/state/.pass
 
-const MASTER_PASS_STORE: Lazy<std::path::PathBuf> =
+pub const MASTER_PASS_STORE: Lazy<std::path::PathBuf> =
     Lazy::new(|| XDG_BASE.place_state_file("master.dat").unwrap()); // $HOME/.local/state/.pass/Master.yml
 
 #[derive(Debug, thiserror::Error)]

@@ -1,4 +1,6 @@
-use crate::{MASTER_PASSWORD_PATH, PASS_DIR_PATH};
+use std::path::PathBuf;
+
+use crate::pass::master::MASTER_PASS_STORE;
 
 // To check any path exist?
 pub fn is_path_exist(path: &str) -> bool {
@@ -8,6 +10,8 @@ pub fn is_path_exist(path: &str) -> bool {
 
 // To check any pass initialised?
 pub fn is_pass_initialised() -> bool {
-    let path = std::path::Path::new(MASTER_PASSWORD_PATH);
-    path.exists()
+    let master = MASTER_PASS_STORE;
+    let paths = master.to_str();
+    let path_buf = PathBuf::from(paths.unwrap());
+    path_buf.exists()
 }

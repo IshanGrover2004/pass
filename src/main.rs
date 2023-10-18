@@ -1,7 +1,8 @@
+//! Making a safe & secure, easy to use password manager and generator
+
 use pass::cli::run_cli;
 
 fn main() {
-    // Making a safe & secure, easy to use password manager and generator
     run_cli();
 }
 
