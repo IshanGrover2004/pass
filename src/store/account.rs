@@ -1,15 +1,18 @@
-//! This module contains the ifnormation regarding hte password
+//! This module contains the information regarding hte password
 //!
 //!
 
 use std::collections::HashMap;
 
+use rand::{distributions::Alphanumeric, Rng};
+use serde::{Deserialize, Serialize};
+
 /// Stores the information of the entry in the vault
 /// Eg: instagram:username:password:personal id:re-promt-master-pass:false;
-#[derive(Debug, PartialEq, Eq)]
-struct Account {
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Account {
     /// Name can also act as it, as it need to be unique for all entries in the vault
-    name: String,
+    pub name: String,
 
     /// Username, email, phone number or any other identifier of the account on the website
     username: String,
@@ -24,6 +27,14 @@ struct Account {
     notes: HashMap<String, String>,
 }
 
+fn rand_str() -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(rand::thread_rng().gen_range(0..100))
+        .map(char::from)
+        .collect()
+}
+
 impl Account {
     /// Constructs a new [Account] with given name, username and password
     pub fn new(name: &str, username: &str, password: &str) -> Self {
@@ -33,5 +44,26 @@ impl Account {
             password: password.to_owned(),
             notes: HashMap::new(),
         }
+    }
+
+    pub fn new_rand() -> Self {
+        Self {
+            name: rand_str(),
+            username: rand_str(),
+            password: rand_str(),
+            notes: HashMap::from([(rand_str(), rand_str()), (rand_str(), rand_str())]),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Account;
+
+    #[test]
+    fn check_rng() {
+        let pass = Account::new_rand();
+
+        println!("{:?}", pass);
     }
 }
