@@ -189,12 +189,17 @@ impl MasterPassword<Unlocked> {
             .read_line(&mut password)
             .map_err(|e| MasterPasswordError::UnableToReadFromConsole(e))?;
 
-        let password = password.trim();
-        self.unlocked_pass = Some(password.as_bytes().to_vec());
-        self.hash = Some(hash(&password));
-        std::fs::write(MASTER_PASS_STORE.to_owned(), self.hash.as_ref().unwrap())
-            .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
-        Ok(())
+        if is_strong_password(&password) {
+            let password = password.trim();
+            self.unlocked_pass = Some(password.as_bytes().to_vec());
+            self.hash = Some(hash(&password));
+            std::fs::write(MASTER_PASS_STORE.to_owned(), self.hash.as_ref().unwrap())
+                .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
+            Ok(())
+        } else {
+            colour::red!("Password is not strong enough!\n");
+            self.change()
+        }
     }
 
     pub fn check(&self) {
