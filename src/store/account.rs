@@ -17,14 +17,11 @@ pub struct Account {
     /// Username, email, phone number or any other identifier of the account on the website
     username: String,
 
-    /// Password
-    password: String,
-
     /// Other notes regarding the account, can be 2FA keys or anything
     /// It is in form on K,V, where K is the identifier of the value
     ///
     /// Eg: instagram:username:password:[2FA, burger mango]
-    notes: HashMap<String, String>,
+    notes: Option<HashMap<String, Option<String>>>,
 }
 
 fn rand_str() -> String {
@@ -41,8 +38,7 @@ impl Account {
         Self {
             name: name.to_owned(),
             username: username.to_owned(),
-            password: password.to_owned(),
-            notes: HashMap::new(),
+            notes: Some(HashMap::new()),
         }
     }
 
@@ -50,8 +46,10 @@ impl Account {
         Self {
             name: rand_str(),
             username: rand_str(),
-            password: rand_str(),
-            notes: HashMap::from([(rand_str(), rand_str()), (rand_str(), rand_str())]),
+            notes: Some(HashMap::from([
+                (rand_str(), Some(rand_str())),
+                (rand_str(), Some(rand_str())),
+            ])),
         }
     }
 }
