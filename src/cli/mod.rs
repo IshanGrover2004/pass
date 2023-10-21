@@ -5,7 +5,7 @@ pub mod args;
 use crate::{
     cli::args::{Cli, Commands},
     pass::master::{MasterPassword, MasterPasswordError},
-    store::pass,
+    store::pass::{self, generate_random_password},
 };
 use clap::Parser;
 
@@ -53,7 +53,7 @@ pub fn run_cli() {
 
         Commands::Gen(args) => {
             // Generate a random password
-            let my_password = pass::generate_password(args.length);
+            let my_password = generate_random_password(args.length);
             println!("{my_password}");
         }
     };
