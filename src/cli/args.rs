@@ -5,9 +5,9 @@ use clap::{Args, Parser, Subcommand};
 #[derive(Parser)]
 #[clap(
     name = "pass",
-    version,
+    version = "0.0.1",
     author = "Ishan",
-    about = "A easy-to-use CLI password manager and generator"
+    about = "A easy-to-use CLI password manager"
 )]
 pub struct Cli {
     /// Subcommand to do some operation like add, remove, etc.

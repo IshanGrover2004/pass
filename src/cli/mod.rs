@@ -31,23 +31,23 @@ pub fn run_cli() {
         }
 
         Commands::Add(args) => {
-            println!("Adding a password...");
+            unimplemented!();
         }
 
         Commands::Remove(args) => {
-            println!("Username for remove password");
+            unimplemented!();
         }
 
         Commands::Update(args) => {
-            println!("Username for updating password");
+            unimplemented!();
         }
 
         Commands::List(_) => {
-            println!("Listing all passwords...");
+            unimplemented!();
         }
 
         Commands::Get(args) => {
-            println!("Password for username ");
+            unimplemented!();
         }
 
         Commands::Gen(args) => {

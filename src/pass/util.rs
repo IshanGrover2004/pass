@@ -7,15 +7,21 @@ use ring::{
 
 use super::master::MASTER_PASS_STORE;
 
+// enum UtilError {}
+
 // Derive a encryption key from master password & salt
-pub fn derive_encryption_key(master_pass: &Vec<u8>, salt: &[u8]) -> [u8; 32] {
+pub fn derive_encryption_key<T, R>(master_pass: T, salt: R) -> [u8; 32]
+where
+    T: AsRef<[u8]>,
+    R: AsRef<[u8]>,
+{
     let mut encryption_key = [0_u8; 32];
 
     pbkdf2::derive(
         pbkdf2::PBKDF2_HMAC_SHA256,
         NonZeroU32::new(600_000).unwrap(),
-        salt,
-        master_pass,
+        salt.as_ref(),
+        master_pass.as_ref(),
         &mut encryption_key,
     );
 
@@ -76,4 +82,11 @@ pub fn is_pass_initialised() -> bool {
     let paths = master.to_str();
     let path_buf = PathBuf::from(paths.unwrap());
     path_buf.exists()
+}
+
+pub fn hash(content: &str) -> Vec<u8> {
+    bcrypt::hash(content, bcrypt::DEFAULT_COST)
+        .unwrap()
+        .as_bytes()
+        .to_vec()
 }
