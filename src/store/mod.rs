@@ -1,3 +1,1 @@
-pub mod account;
-pub mod io;
-pub mod pass;
+pub mod password_entry;
