@@ -1,9 +1,9 @@
-use once_cell::sync::Lazy;
 use std::{io::Write, marker::PhantomData};
 
-use crate::encrypt::hash;
+use once_cell::sync::Lazy;
 
 use super::util::is_strong_password;
+use crate::pass::util::hash;
 
 // Making Base directories by xdg config
 const APP_NAME: &str = ".pass";
@@ -14,8 +14,11 @@ const XDG_BASE: Lazy<xdg::BaseDirectories> = Lazy::new(|| {
 
 const PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BASE.get_state_home()); // $HOME/.local/state/.pass
 
-pub const MASTER_PASS_STORE: Lazy<std::path::PathBuf> =
-    Lazy::new(|| XDG_BASE.place_state_file("master.dat").unwrap()); // $HOME/.local/state/.pass/Master.yml
+pub const MASTER_PASS_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
+    XDG_BASE
+        .place_state_file("master.dat")
+        .expect("Unable to place master.dat file")
+}); // $HOME/.local/state/.pass/Master.yml
 
 #[derive(Debug, thiserror::Error)]
 pub enum MasterPasswordError {
@@ -149,10 +152,9 @@ impl MasterPassword<Locked> {
         (0..MAX_ATTEMPT)
             .find_map(|attempt| {
                 let master_pass_prompt = MasterPassword::password_input().ok()?;
-                let master_pass_prompt = master_pass_prompt;
                 MasterPassword::verify(&master_pass_prompt)
                     .ok()
-                    .map(|is_verified| {
+                    .and_then(|is_verified| {
                         if is_verified {
                             Some(MasterPassword {
                                 hash: self.hash.clone(),
@@ -165,7 +167,6 @@ impl MasterPassword<Locked> {
                             None
                         }
                     })
-                    .flatten()
             })
             .ok_or(MasterPasswordError::WrongMasterPassword)
     }
