@@ -1,10 +1,9 @@
 use once_cell::sync::Lazy;
-use std::{hash, io::Write, marker::PhantomData};
+use std::{io::Write, marker::PhantomData};
 
-use crate::{
-    encrypt::{self, hash},
-    store::pass::{self, is_strong_password},
-};
+use crate::encrypt::hash;
+
+use super::util::is_strong_password;
 
 // Making Base directories by xdg config
 const APP_NAME: &str = ".pass";
@@ -100,7 +99,7 @@ impl MasterPassword<Uninit> {
     pub fn prompt() -> Result<String, MasterPasswordError> {
         std::io::stdout().flush().ok(); // Flush the output to ensure prompt is displayed
 
-        let mut master_password = MasterPassword::password_input()?;
+        let master_password = MasterPassword::password_input()?;
         if !is_strong_password(&master_password) {
             colour::red!("Password is not strong enough!\n");
             return MasterPassword::prompt();
@@ -218,8 +217,6 @@ mod test {
     #[test]
     fn check_init() {
         let master = MasterPassword::new();
-        // println!("{:?}", master);
-        let pass = "Hello@123";
         let unlocked = master.unwrap().unlock();
     }
 }
