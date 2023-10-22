@@ -1,6 +1,10 @@
-use std::slice;
+use std::{num::NonZeroU32, slice};
 
 use super::account::Account;
+use ring::{
+    pbkdf2,
+    rand::{SecureRandom, SystemRandom},
+};
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
     serialize::impls::BincodeSerializer, shared_key::SharedKey, traits::SerdeEncryptSharedKey,
@@ -50,27 +54,49 @@ impl PasswordEntry {
     }
 
     /// Encrypt the entry
-    pub fn encrypt_entry(&self, key: &Vec<u8>) -> Result<Vec<u8>, serde_encrypt::Error> {
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&key);
-
-        let key = SharedKey::from_array(arr);
+    pub fn encrypt_entry(&self, master_pass: &Vec<u8>) -> Result<Vec<u8>, serde_encrypt::Error> {
+        let key = derive_encrytion_key(master_pass, "Salt".as_bytes());
+        let key = SharedKey::new(key);
 
         let encrypted_content = self.encrypt(&key)?;
         Ok(encrypted_content.serialize())
     }
 
     // Decrypt the entry
-    pub fn decrypt_entry(content: &Vec<u8>, key: &Vec<u8>) -> Result<Self, serde_encrypt::Error> {
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&key);
-
-        let key = SharedKey::from_array(arr);
+    pub fn decrypt_entry(
+        content: &Vec<u8>,
+        master_pass: &Vec<u8>,
+    ) -> Result<Self, serde_encrypt::Error> {
+        let key = derive_encrytion_key(master_pass, "Salt".as_bytes());
+        let key = SharedKey::new(key);
 
         let encrypted_content = EncryptedMessage::deserialize(content.to_owned())?;
         let decrypted_content = PasswordEntry::decrypt_owned(&encrypted_content, &key)?;
         Ok(decrypted_content)
     }
+}
+
+// Derive a encryption key from master password & salt
+pub fn derive_encrytion_key(master_pass: &Vec<u8>, salt: &[u8]) -> [u8; 32] {
+    let mut encryption_key = [0_u8; 32];
+
+    pbkdf2::derive(
+        pbkdf2::PBKDF2_HMAC_SHA256,
+        NonZeroU32::new(600_000).unwrap(),
+        salt,
+        master_pass,
+        &mut encryption_key,
+    );
+
+    encryption_key
+}
+
+// Genrerate a random salt using Rng
+pub fn get_random_salt() -> [u8; 16] {
+    let mut salt = [0u8; 16];
+    let r = SystemRandom::new();
+    r.fill(&mut salt).unwrap();
+    salt
 }
 
 // Function to verify the master password is strong enough
@@ -125,7 +151,7 @@ mod test {
     fn encrypt_decrypt_works() -> Result<(), serde_encrypt::Error> {
         let any_entry = PasswordEntry::new(
             String::from("Netflix"),
-            Some("hello123@".as_bytes().to_vec()),
+            Some(b"GxM4B7PDBe3NVY!Yj7A&&hvPs!ssJ3^q".to_vec()),
             None,
         );
         dbg!(&any_entry);
@@ -133,12 +159,12 @@ mod test {
         let key = "this is key".as_bytes().to_vec();
 
         let encrypted_content = any_entry.encrypt_entry(&key)?;
-        dbg!(&encrypted_content);
+        println!("Encrypted content: {:?}", &encrypted_content);
 
         let decrypted_content = PasswordEntry::decrypt_entry(&encrypted_content, &key)?;
-        dbg!(&decrypted_content);
+        println!("Decrypted content: {:?}", &decrypted_content);
 
-        // assert_eq!(any_entry, decrypted_content);
+        assert_eq!(any_entry.password, decrypted_content.password);
 
         Ok(())
     }
