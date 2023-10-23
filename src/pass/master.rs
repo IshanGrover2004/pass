@@ -18,7 +18,7 @@ pub const MASTER_PASS_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
     XDG_BASE
         .place_state_file("master.dat")
         .expect("Unable to place master.dat file")
-}); // $HOME/.local/state/.pass/Master.yml
+}); // $HOME/.local/state/.pass/Master.dat
 
 #[derive(Debug, thiserror::Error)]
 pub enum MasterPasswordError {
@@ -99,7 +99,7 @@ impl MasterPassword<Uninit> {
     }
 
     // Takes input master_password from user
-    pub fn prompt() -> Result<String, MasterPasswordError> {
+    pub fn prompt() -> Result<impl AsRef<str>, MasterPasswordError> {
         std::io::stdout().flush().ok(); // Flush the output to ensure prompt is displayed
 
         let master_password = MasterPassword::password_input()?;
@@ -111,7 +111,7 @@ impl MasterPassword<Uninit> {
         Ok(master_password)
     }
 
-    pub fn password_input() -> Result<String, MasterPasswordError> {
+    pub fn password_input() -> Result<impl AsRef<str>, MasterPasswordError> {
         colour::green!("Enter Master password: ");
         let mut master_password = String::new();
         std::io::stdin()
@@ -121,7 +121,7 @@ impl MasterPassword<Uninit> {
     }
 
     // Check if master password is correct
-    pub fn verify(master_password: &str) -> Result<bool, MasterPasswordError> {
+    pub fn verify(master_password: impl AsRef<str>) -> Result<bool, MasterPasswordError> {
         let hashed_password: String = String::from_utf8(
             std::fs::read(MASTER_PASS_STORE.to_owned())
                 .map_err(|e| MasterPasswordError::UnableToRead(e))?,
@@ -130,7 +130,7 @@ impl MasterPassword<Uninit> {
             MasterPasswordError::UnableToConvert(String::from("Error in converting utf8 -> String"))
         })?;
 
-        match bcrypt::verify(&master_password, hashed_password.as_str()) {
+        match bcrypt::verify(&master_password.as_ref(), hashed_password.as_str()) {
             Ok(is_correct) => Ok(is_correct),
             Err(_) => Err(MasterPasswordError::BcryptError(String::from(
                 "Unable to hash password",
@@ -158,7 +158,9 @@ impl MasterPassword<Locked> {
                         if is_verified {
                             Some(MasterPassword {
                                 hash: self.hash.clone(),
-                                unlocked_pass: Some(master_pass_prompt.as_bytes().to_vec()),
+                                unlocked_pass: Some(
+                                    master_pass_prompt.as_ref().as_bytes().to_vec(),
+                                ),
                                 state: PhantomData::<Unlocked>,
                             })
                         } else {

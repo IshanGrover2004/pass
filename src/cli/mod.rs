@@ -1,12 +1,12 @@
 // Modules required to make
 pub mod args;
 
-// Importing...
+use clap::Parser;
+
 use crate::{
     cli::args::{Cli, Commands},
     pass::{master::MasterPassword, util::generate_random_password},
 };
-use clap::Parser;
 
 // Run the CLI
 pub fn run_cli() {
@@ -53,7 +53,7 @@ pub fn run_cli() {
         Commands::Gen(args) => {
             // Generate a random password
             let my_password = generate_random_password(args.length);
-            println!("{my_password}");
+            println!("{:?}", my_password.as_ref());
         }
     };
 }
