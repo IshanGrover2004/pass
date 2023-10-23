@@ -1,6 +1,9 @@
 //! Making a safe & secure, easy to use password manager and generator
+//!
+pub mod cli;
+pub mod pass;
 
-use pass::cli::run_cli;
+use cli::run_cli;
 
 fn main() {
     run_cli();

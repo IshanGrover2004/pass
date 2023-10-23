@@ -197,6 +197,7 @@ impl MasterPassword<Unlocked> {
                 .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
             Ok(())
         } else {
+            colour::red!("Password is not strong enough!\n");
             self.change()
         }
     }
