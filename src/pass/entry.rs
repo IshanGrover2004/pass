@@ -12,13 +12,13 @@ struct Password {
 }
 
 impl Password {
-    pub fn new(password: Option<Vec<u8>>) -> Self {
-        match password {
-            Some(pass) => Password { password: pass },
-            None => Password {
-                password: generate_random_password(12).as_bytes().to_vec(),
-            },
-        }
+    pub fn new(password: Option<impl AsRef<[u8]>>) -> Self {
+        let pass = match password {
+            Some(pass) => pass.as_ref().to_vec(),
+            None => generate_random_password(12).as_ref().to_vec(),
+        };
+
+        Password { password: pass }
     }
 }
 
@@ -40,7 +40,7 @@ impl SerdeEncryptSharedKey for PasswordEntry {
 
 impl PasswordEntry {
     /// Function for initialising entry of a password by taking details of it
-    pub fn new(service: String, username: String, password: Option<Vec<u8>>) -> Self {
+    pub fn new(service: String, username: String, password: Option<impl AsRef<[u8]>>) -> Self {
         Self {
             service,
             username,
@@ -49,7 +49,10 @@ impl PasswordEntry {
     }
 
     /// Encrypt the entry
-    pub fn encrypt_entry(&self, master_pass: &Vec<u8>) -> Result<Vec<u8>, serde_encrypt::Error> {
+    pub fn encrypt_entry(
+        &self,
+        master_pass: &impl AsRef<[u8]>,
+    ) -> Result<impl AsRef<[u8]>, serde_encrypt::Error> {
         let key = derive_encryption_key(master_pass, "Salt".as_bytes());
         let key = SharedKey::new(key);
 
@@ -59,13 +62,13 @@ impl PasswordEntry {
 
     // Decrypt the entry
     pub fn decrypt_entry(
-        content: &Vec<u8>,
-        master_pass: &Vec<u8>,
+        content: &impl AsRef<[u8]>,
+        master_pass: &impl AsRef<[u8]>,
     ) -> Result<Self, serde_encrypt::Error> {
         let key = derive_encryption_key(master_pass, "Salt".as_bytes());
         let key = SharedKey::new(key);
 
-        let encrypted_content = EncryptedMessage::deserialize(content.to_owned())?;
+        let encrypted_content = EncryptedMessage::deserialize(content.as_ref().to_vec())?;
         let decrypted_content = PasswordEntry::decrypt_owned(&encrypted_content, &key)?;
         Ok(decrypted_content)
     }
@@ -78,7 +81,7 @@ mod test {
     #[test]
     fn new_password() {
         println!("Random password generating: ");
-        dbg!(Password::new(None));
+        dbg!(Password::new(None::<&str>));
 
         println!("\nPassword Inputed: ");
         dbg!(Password::new(Some("PasswordInputed".as_bytes().to_vec())));
@@ -96,7 +99,7 @@ mod test {
         let key = "this is key".as_bytes().to_vec();
 
         let encrypted_content = any_entry.encrypt_entry(&key)?;
-        println!("Encrypted content: {:?}", &encrypted_content);
+        println!("Encrypted content: {:?}", &encrypted_content.as_ref());
 
         let decrypted_content = PasswordEntry::decrypt_entry(&encrypted_content, &key)?;
         println!("Decrypted content: {:?}", &decrypted_content);
