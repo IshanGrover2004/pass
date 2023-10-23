@@ -49,8 +49,8 @@ impl PasswordEntry {
     }
 
     /// Encrypt the entry
-    pub fn encrypt_entry(&self, master_pass: String) -> Result<Vec<u8>, serde_encrypt::Error> {
-        let key = derive_encryption_key(master_pass, "Salt");
+    pub fn encrypt_entry(&self, master_pass: &Vec<u8>) -> Result<Vec<u8>, serde_encrypt::Error> {
+        let key = derive_encryption_key(master_pass, "Salt".as_bytes());
         let key = SharedKey::new(key);
 
         let encrypted_content = self.encrypt(&key)?;

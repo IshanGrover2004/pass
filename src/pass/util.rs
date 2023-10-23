@@ -36,6 +36,14 @@ pub fn get_random_salt() -> [u8; 16] {
     salt
 }
 
+// Generate hash for given content
+pub fn hash(content: &str) -> Vec<u8> {
+    bcrypt::hash(content, bcrypt::DEFAULT_COST)
+        .unwrap()
+        .as_bytes()
+        .to_vec()
+}
+
 // Function to verify the master password is strong enough
 pub fn is_strong_password(password: &str) -> bool {
     // Check if the password length is at least 8 characters
@@ -82,11 +90,4 @@ pub fn is_pass_initialised() -> bool {
     let paths = master.to_str();
     let path_buf = PathBuf::from(paths.unwrap());
     path_buf.exists()
-}
-
-pub fn hash(content: &str) -> Vec<u8> {
-    bcrypt::hash(content, bcrypt::DEFAULT_COST)
-        .unwrap()
-        .as_bytes()
-        .to_vec()
 }
