@@ -3,16 +3,7 @@ use std::{io::Write, marker::PhantomData};
 use once_cell::sync::Lazy;
 
 use super::util::is_strong_password;
-use crate::pass::util::hash;
-
-// Making Base directories by xdg config
-const APP_NAME: &str = ".pass";
-
-const XDG_BASE: Lazy<xdg::BaseDirectories> = Lazy::new(|| {
-    xdg::BaseDirectories::with_prefix(APP_NAME).expect("Failed to initialised XDG BaseDirectories")
-});
-
-const PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BASE.get_state_home()); // $HOME/.local/state/.pass
+use crate::pass::util::{hash, PASS_DIR_PATH, XDG_BASE};
 
 pub const MASTER_PASS_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
     XDG_BASE
@@ -21,9 +12,9 @@ pub const MASTER_PASS_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
 }); // $HOME/.local/state/.pass/Master.dat
 
 #[derive(Debug, thiserror::Error)]
-pub enum MasterPasswordError {
+pub(crate) enum MasterPasswordError {
     #[error("The master password store file is not readable due to {0}")]
-    UnableToRead(#[from] std::io::Error),
+    UnableToRead(std::io::Error),
 
     #[error("Unable to create dirs for password storage")]
     UnableToCreateDirs(std::io::Error),
@@ -37,10 +28,10 @@ pub enum MasterPasswordError {
     #[error("Master password not matched")]
     WrongMasterPassword,
 
-    #[error("{0}")]
+    #[error("Unable to convert {0}")]
     UnableToConvert(String),
 
-    #[error("{0}")]
+    #[error("Bcrypt Error: {0}")]
     BcryptError(String),
 
     #[error("Unable to use Console IO: {0}")]
@@ -83,7 +74,8 @@ impl MasterPassword<Uninit> {
             }
 
             let prompt_master_password = MasterPassword::prompt()?;
-            let hashed_password = hash(&prompt_master_password);
+            let hashed_password = hash(&prompt_master_password)
+                .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
 
             std::fs::write(MASTER_PASS_STORE.to_owned(), &hashed_password)
                 .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
@@ -194,7 +186,10 @@ impl MasterPassword<Unlocked> {
         if is_strong_password(&password) {
             let password = password.trim();
             self.unlocked_pass = Some(password.as_bytes().to_vec());
-            self.hash = Some(hash(&password));
+            let hash = hash(&password)
+                .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
+            self.hash = Some(hash);
+
             std::fs::write(MASTER_PASS_STORE.to_owned(), self.hash.as_ref().unwrap())
                 .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
             Ok(())

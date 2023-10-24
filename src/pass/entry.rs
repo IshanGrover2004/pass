@@ -7,7 +7,7 @@ use serde_encrypt::{
 use crate::pass::util::{derive_encryption_key, generate_random_password};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, PartialOrd)]
-struct Password {
+pub struct Password {
     password: Vec<u8>,
 }
 
@@ -23,7 +23,7 @@ impl Password {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct PasswordEntry {
+pub struct PasswordEntry {
     /// Name of service/email/website for which password is stored
     service: String,
 
@@ -36,6 +36,16 @@ struct PasswordEntry {
 
 impl SerdeEncryptSharedKey for PasswordEntry {
     type S = BincodeSerializer<Self>;
+}
+
+impl Default for PasswordEntry {
+    fn default() -> Self {
+        PasswordEntry {
+            service: String::new(),
+            username: String::new(),
+            password: Password::new(None::<&str>),
+        }
+    }
 }
 
 impl PasswordEntry {
@@ -84,7 +94,7 @@ mod test {
         dbg!(Password::new(None::<&str>));
 
         println!("\nPassword Inputed: ");
-        dbg!(Password::new(Some("PasswordInputed".as_bytes().to_vec())));
+        dbg!(Password::new(Some("PasswordInputed")));
     }
 
     #[test]
@@ -94,15 +104,13 @@ mod test {
             String::new(),
             Some(b"GxM4B7PDBe3NVY!Yj7A&&hvPs!ssJ3^q".to_vec()),
         );
-        dbg!(&any_entry);
 
+        // A random key
         let key = "this is key".as_bytes().to_vec();
 
+        // Encrypting & decrypting content
         let encrypted_content = any_entry.encrypt_entry(&key)?;
-        println!("Encrypted content: {:?}", &encrypted_content.as_ref());
-
         let decrypted_content = PasswordEntry::decrypt_entry(&encrypted_content, &key)?;
-        println!("Decrypted content: {:?}", &decrypted_content);
 
         assert_eq!(any_entry.password, decrypted_content.password);
 
