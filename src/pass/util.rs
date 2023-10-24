@@ -1,5 +1,6 @@
 use std::{num::NonZeroU32, path::PathBuf};
 
+use once_cell::sync::Lazy;
 use ring::{
     pbkdf2,
     rand::{SecureRandom, SystemRandom},
@@ -7,7 +8,20 @@ use ring::{
 
 use super::master::MASTER_PASS_STORE;
 
-// enum UtilError {}
+// Making Base directories by xdg config
+pub(crate) const APP_NAME: &str = ".pass";
+
+pub(crate) const XDG_BASE: Lazy<xdg::BaseDirectories> = Lazy::new(|| {
+    xdg::BaseDirectories::with_prefix(APP_NAME).expect("Failed to initialised XDG BaseDirectories")
+});
+
+pub(crate) const PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BASE.get_state_home()); // $HOME/.local/state/.pass
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum UtilError {
+    #[error("Bcrypt Error: {0}")]
+    BcryptError(String),
+}
 
 // Derive a encryption key from master password & salt
 pub fn derive_encryption_key<T, R>(master_pass: T, salt: R) -> [u8; 32]
@@ -37,11 +51,11 @@ pub fn get_random_salt() -> [u8; 16] {
 }
 
 // Generate hash for given content
-pub fn hash(content: impl AsRef<str>) -> Vec<u8> {
-    bcrypt::hash(content.as_ref(), bcrypt::DEFAULT_COST)
-        .unwrap()
+pub fn hash(content: impl AsRef<str>) -> Result<Vec<u8>, UtilError> {
+    Ok(bcrypt::hash(content.as_ref(), bcrypt::DEFAULT_COST)
+        .map_err(|e| UtilError::BcryptError(String::from("Unable to hash password")))?
         .as_bytes()
-        .to_vec()
+        .to_vec())
 }
 
 // Function to verify the master password is strong enough
