@@ -31,7 +31,14 @@ pub fn run_cli() {
         }
 
         Commands::Add(args) => {
-            unimplemented!();
+            dbg!(&args);
+
+            let master_password = MasterPassword::password_input().unwrap();
+            if MasterPassword::verify(&master_password).unwrap() {
+                args.add_entries(master_password.as_ref());
+            } else {
+                colour::red!("Incorrect MasterPassword");
+            }
         }
 
         Commands::Remove(args) => {
