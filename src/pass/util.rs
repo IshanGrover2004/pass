@@ -9,16 +9,16 @@ use ring::{
 use super::master::MASTER_PASS_STORE;
 
 // Making Base directories by xdg config
-pub(crate) const APP_NAME: &str = ".pass";
+pub(crate) static APP_NAME: &str = ".pass";
 
-pub(crate) const XDG_BASE: Lazy<xdg::BaseDirectories> = Lazy::new(|| {
+pub(crate) static XDG_BASE: Lazy<xdg::BaseDirectories> = Lazy::new(|| {
     xdg::BaseDirectories::with_prefix(APP_NAME).expect("Failed to initialised XDG BaseDirectories")
 });
 
-pub(crate) const PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BASE.get_state_home()); // $HOME/.local/state/.pass
+pub(crate) static PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BASE.get_state_home()); // $HOME/.local/state/.pass
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum UtilError {
+pub enum UtilError {
     #[error("Bcrypt Error: {0}")]
     BcryptError(String),
 }
@@ -101,7 +101,7 @@ pub fn generate_random_password(length: u8) -> impl AsRef<[u8]> {
 
 // To check any pass initialised
 pub fn is_pass_initialised() -> bool {
-    let master = MASTER_PASS_STORE;
+    let master = MASTER_PASS_STORE.to_path_buf();
     let paths = master.to_str();
     let path_buf = PathBuf::from(paths.unwrap());
 

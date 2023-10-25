@@ -1,6 +1,11 @@
 // Importing...
 use clap::{Args, Parser, Subcommand};
 
+use crate::pass::{
+    entry::PasswordEntry,
+    store::{PasswordStore, PasswordStoreError, PASS_ENTRY_STORE},
+};
+
 // CLI Design
 #[derive(Parser)]
 #[clap(
@@ -49,27 +54,47 @@ pub struct InitArgs {
     master_password: String,
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct AddArgs {
-    /// Master password required for authentication
-    #[clap(required = false, default_value = "")]
-    master_password: String,
+    /// Service name for identify any password
+    #[clap(required = true)]
+    service: String,
 
     /// Username/email of the account
-    #[clap(short = 'n', long = "name")]
-    username: String,
+    #[clap(short = 'n', long = None)]
+    username: Option<String>,
 
     /// Password of the account (if not provided, a random password will be generated)
-    #[clap(short = 'p', long = "pass")]
+    #[clap(short = 'p', default_value = None)]
     password: Option<String>,
 
-    /// URL of the site/app for which the password is
-    #[clap(short = 'u', long = "url", default_value = "No URL provided")]
-    url: String,
-
     /// Notes for the account
-    #[clap(short = 'm', required = false, default_value = " ")]
-    notes: String,
+    #[clap(short = 'm', default_value = None)]
+    notes: Option<String>,
+}
+
+impl AddArgs {
+    pub fn add_entries(&self, master_password: impl AsRef<[u8]>) -> Result<(), PasswordStoreError> {
+        // ASK: How to deal with unwrap here
+        let mut manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), &master_password)?;
+
+        let entry = PasswordEntry::new(
+            self.service.to_owned(),
+            self.username.to_owned(),
+            self.password.to_owned(),
+            self.notes.to_owned(),
+        );
+
+        // Push the new entries
+        manager.push(entry);
+
+        // New entries are pushed to database
+        manager
+            .dump_to_db(PASS_ENTRY_STORE.to_path_buf(), &master_password)
+            .unwrap();
+
+        Ok(())
+    }
 }
 
 #[derive(Args)]
