@@ -5,14 +5,14 @@ use once_cell::sync::Lazy;
 use super::util::is_strong_password;
 use crate::pass::util::{hash, PASS_DIR_PATH, XDG_BASE};
 
-pub const MASTER_PASS_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
+pub static MASTER_PASS_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
     XDG_BASE
         .place_state_file("master.dat")
         .expect("Unable to place master.dat file")
 }); // $HOME/.local/state/.pass/Master.dat
 
 #[derive(Debug, thiserror::Error)]
-pub(crate) enum MasterPasswordError {
+pub enum MasterPasswordError {
     #[error("The master password store file is not readable due to {0}")]
     UnableToRead(std::io::Error),
 
@@ -55,7 +55,7 @@ impl MasterPassword<Uninit> {
     pub fn new() -> Result<MasterPassword<Locked>, MasterPasswordError> {
         // Check if pass not exist
         if MASTER_PASS_STORE.exists() {
-            let hashed_password = std::fs::read(MASTER_PASS_STORE.to_owned())
+            let hashed_password = std::fs::read(MASTER_PASS_STORE.to_path_buf())
                 .map_err(|e| MasterPasswordError::UnableToRead(e))?;
 
             colour::green!("Pass already initialised!!\n");
@@ -77,7 +77,7 @@ impl MasterPassword<Uninit> {
             let hashed_password = hash(&prompt_master_password)
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
 
-            std::fs::write(MASTER_PASS_STORE.to_owned(), &hashed_password)
+            std::fs::write(MASTER_PASS_STORE.to_path_buf(), &hashed_password)
                 .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
 
             colour::green!("Pass Initialising...\n");
@@ -115,7 +115,7 @@ impl MasterPassword<Uninit> {
     // Check if master password is correct
     pub fn verify(master_password: impl AsRef<str>) -> Result<bool, MasterPasswordError> {
         let hashed_password: String = String::from_utf8(
-            std::fs::read(MASTER_PASS_STORE.to_owned())
+            std::fs::read(MASTER_PASS_STORE.to_path_buf())
                 .map_err(|e| MasterPasswordError::UnableToRead(e))?,
         )
         .map_err(|_| {
@@ -190,7 +190,7 @@ impl MasterPassword<Unlocked> {
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
             self.hash = Some(hash);
 
-            std::fs::write(MASTER_PASS_STORE.to_owned(), self.hash.as_ref().unwrap())
+            std::fs::write(MASTER_PASS_STORE.to_path_buf(), self.hash.as_ref().unwrap())
                 .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
             Ok(())
         } else {
