@@ -101,14 +101,13 @@ impl PasswordStore {
 
     // Add entries to the existing entries
     pub fn push_entry(&mut self, entry: PasswordEntry) {
-        // TODO: If same service of entry exist
-
         let is_dupe = self.passwords.iter().any(|current_entry| {
             current_entry.service == entry.service //&& current_entry.username == entry.username
         });
 
         if !is_dupe {
             self.passwords.push(entry);
+            println!("Successfully added entry");
         } else {
             colour::red_ln!("Password entry of same service & username found");
         }
