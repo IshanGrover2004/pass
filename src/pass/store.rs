@@ -1,4 +1,4 @@
-use std::{ops::Deref, path::Path};
+use std::path::Path;
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -63,7 +63,7 @@ impl PasswordStore {
         // If no PasswordEntry is stored yet then create file to store it
         if !file_path.as_ref().exists() {
             std::fs::File::create(file_path.as_ref())
-                .map_err(|e| PasswordStoreError::UnableToCreateDirs(e))?;
+                .map_err(PasswordStoreError::UnableToCreateDirs)?;
 
             // Returning an empty Vec bcs of no Entry available
             return Ok(PasswordStore {
@@ -71,13 +71,7 @@ impl PasswordStore {
             });
         }
 
-        // Reads the content from database
-        let content: String = String::from_utf8(
-            std::fs::read(file_path.as_ref()).map_err(|e| PasswordStoreError::UnableToRead(e))?,
-        )
-        .map_err(|_| PasswordStoreError::UnableToConvert("from UTF-8 to String".to_owned()))?;
-
-        PasswordStore::load_from_db(file_path.as_ref(), master_password)
+        PasswordStore::load(file_path.as_ref(), master_password)
     }
 
     /// Encrypt the Password entries
@@ -109,24 +103,19 @@ impl PasswordStore {
     pub fn push_entry(&mut self, entry: PasswordEntry) {
         // TODO: If same service of entry exist
 
-        let x = &self
-            .passwords
-            .iter()
-            .filter(|current_entry| {
-                current_entry.service == entry.service //&& current_entry.username == entry.username
-            })
-            .collect::<Vec<_>>();
+        let is_dupe = self.passwords.iter().any(|current_entry| {
+            current_entry.service == entry.service //&& current_entry.username == entry.username
+        });
 
-        if x.is_empty() {
+        if !is_dupe {
             self.passwords.push(entry);
-            return;
+        } else {
+            colour::red_ln!("Password entry of same service & username found");
         }
-
-        colour::red_ln!("Password entry of same service & username found");
     }
 
     // Encrypt the entries & dump it to database
-    pub fn dump_to_db(
+    pub fn dump(
         &self,
         file_path: impl AsRef<Path>,
         master_pass: impl AsRef<[u8]>,
@@ -142,7 +131,7 @@ impl PasswordStore {
     }
 
     // Read entries from database & decrypt it
-    pub fn load_from_db(
+    pub fn load(
         file_path: impl AsRef<Path>,
         master_pass: impl AsRef<[u8]>,
     ) -> Result<Self, PasswordStoreError> {
@@ -161,7 +150,7 @@ impl PasswordStore {
     }
 
     // Remove entries from existing entries
-    pub fn pop(&mut self, _entries: Vec<PasswordEntry>) {
+    pub fn remove(&mut self, _t: Vec<PasswordEntry>) {
         // TODO: If no entry exist of that service
         unimplemented!();
     }
@@ -203,14 +192,15 @@ mod test {
         ];
 
         // Pushing multiple entries
-        entries.into_iter().map(|entry| manager.push_entry(entry));
+        entries
+            .into_iter()
+            .for_each(|entry| manager.push_entry(entry));
 
         // Writing these entries to database
-        manager.dump_to_db(TESTING_PASS.to_path_buf(), test_master_pass)?;
+        manager.dump(TESTING_PASS.to_path_buf(), test_master_pass)?;
 
         // Loading contents from database
-        let decrypted_manager =
-            PasswordStore::load_from_db(TESTING_PASS.to_path_buf(), test_master_pass)?;
+        let decrypted_manager = PasswordStore::load(TESTING_PASS.to_path_buf(), test_master_pass)?;
 
         assert_eq!(manager.passwords[0], decrypted_manager.passwords[0]);
         assert_eq!(manager.passwords[1], decrypted_manager.passwords[1]);

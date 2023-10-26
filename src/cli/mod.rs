@@ -41,11 +41,10 @@ pub fn run_cli() {
             if MasterPassword::verify(&master_password).unwrap() {
                 args.add_entries(master_password.as_ref());
                 println!("Successfully stored enty");
-                dbg!(PasswordStore::load_from_db(
-                    PASS_ENTRY_STORE.to_path_buf(),
-                    master_password.as_ref()
-                )
-                .expect("Error in loading"));
+                dbg!(
+                    PasswordStore::load(PASS_ENTRY_STORE.to_path_buf(), master_password.as_ref())
+                        .expect("Error in loading")
+                );
             } else {
                 colour::red!("Incorrect MasterPassword");
             }
