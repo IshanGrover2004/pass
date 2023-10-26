@@ -5,7 +5,11 @@ use clap::Parser;
 
 use crate::{
     cli::args::{Cli, Commands},
-    pass::{master::MasterPassword, util::generate_random_password},
+    pass::{
+        master::MasterPassword,
+        store::{PasswordStore, PASS_ENTRY_STORE},
+        util::generate_random_password,
+    },
 };
 
 // Run the CLI
@@ -36,6 +40,12 @@ pub fn run_cli() {
             let master_password = MasterPassword::password_input().unwrap();
             if MasterPassword::verify(&master_password).unwrap() {
                 args.add_entries(master_password.as_ref());
+                println!("Successfully stored enty");
+                dbg!(PasswordStore::load_from_db(
+                    PASS_ENTRY_STORE.to_path_buf(),
+                    master_password.as_ref()
+                )
+                .expect("Error in loading"));
             } else {
                 colour::red!("Incorrect MasterPassword");
             }

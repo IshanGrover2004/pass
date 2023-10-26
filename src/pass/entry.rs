@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_encrypt::{serialize::impls::BincodeSerializer, traits::SerdeEncryptSharedKey};
 
 use crate::pass::util::generate_random_password;
 
@@ -22,10 +21,10 @@ impl Password {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PasswordEntry {
     /// Name of service/email/website for which password is stored
-    service: String,
+    pub(crate) service: String,
 
     /// Username or Identifer used for that service
-    username: Option<String>,
+    pub(crate) username: Option<String>,
 
     /// Password for service
     password: Password,

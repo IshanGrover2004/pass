@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{ops::Deref, path::Path};
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -62,7 +62,7 @@ impl PasswordStore {
     ) -> Result<Self, PasswordStoreError> {
         // If no PasswordEntry is stored yet then create file to store it
         if !file_path.as_ref().exists() {
-            std::fs::File::create(file_path)
+            std::fs::File::create(file_path.as_ref())
                 .map_err(|e| PasswordStoreError::UnableToCreateDirs(e))?;
 
             // Returning an empty Vec bcs of no Entry available
@@ -73,26 +73,11 @@ impl PasswordStore {
 
         // Reads the content from database
         let content: String = String::from_utf8(
-            std::fs::read(file_path).map_err(|e| PasswordStoreError::UnableToRead(e))?,
+            std::fs::read(file_path.as_ref()).map_err(|e| PasswordStoreError::UnableToRead(e))?,
         )
         .map_err(|_| PasswordStoreError::UnableToConvert("from UTF-8 to String".to_owned()))?;
 
-        // If no content available
-        if content.is_empty() {
-            // Returning an empty Vec bcs of no Entry available
-            return Ok(PasswordStore {
-                passwords: Vec::new(),
-            });
-        }
-
-        // Return decrypted entries
-        Ok(
-            PasswordStore::decrypt_entry(content, master_password.as_ref()).map_err(|_| {
-                PasswordStoreError::UnableToDecryptError(
-                    "Unable to decrypt Password entries".to_owned(),
-                )
-            })?,
-        )
+        PasswordStore::load_from_db(file_path.as_ref(), master_password)
     }
 
     /// Encrypt the Password entries
@@ -121,12 +106,26 @@ impl PasswordStore {
     }
 
     // Add entries to the existing entries
-    pub fn push(&mut self, entries: PasswordEntry) {
+    pub fn push_entry(&mut self, entry: PasswordEntry) {
         // TODO: If same service of entry exist
 
-        self.passwords.push(entries);
+        let x = &self
+            .passwords
+            .iter()
+            .filter(|current_entry| {
+                current_entry.service == entry.service //&& current_entry.username == entry.username
+            })
+            .collect::<Vec<_>>();
+
+        if x.is_empty() {
+            self.passwords.push(entry);
+            return;
+        }
+
+        colour::red_ln!("Password entry of same service & username found");
     }
 
+    // Encrypt the entries & dump it to database
     pub fn dump_to_db(
         &self,
         file_path: impl AsRef<Path>,
@@ -142,12 +141,17 @@ impl PasswordStore {
         Ok(())
     }
 
+    // Read entries from database & decrypt it
     pub fn load_from_db(
         file_path: impl AsRef<Path>,
         master_pass: impl AsRef<[u8]>,
     ) -> Result<Self, PasswordStoreError> {
         let encrypted_data =
             std::fs::read(file_path).map_err(|e| PasswordStoreError::UnableToRead(e))?;
+
+        if encrypted_data.is_empty() {
+            return Ok(PasswordStore { passwords: vec![] });
+        }
 
         Ok(
             PasswordStore::decrypt_entry(encrypted_data, master_pass).map_err(|_| {
@@ -175,7 +179,6 @@ impl PasswordStore {
 mod test {
     use super::*;
     use crate::pass::entry::PasswordEntry;
-    use std::path::Path;
 
     #[test]
     fn test_storage() -> Result<(), PasswordStoreError> {
@@ -200,7 +203,7 @@ mod test {
         ];
 
         // Pushing multiple entries
-        entries.into_iter().map(|entry| manager.push(entry));
+        entries.into_iter().map(|entry| manager.push_entry(entry));
 
         // Writing these entries to database
         manager.dump_to_db(TESTING_PASS.to_path_buf(), test_master_pass)?;
