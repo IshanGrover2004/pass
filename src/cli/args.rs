@@ -75,7 +75,7 @@ pub struct AddArgs {
 
 impl AddArgs {
     pub fn add_entries(&self, master_password: impl AsRef<[u8]>) -> Result<(), PasswordStoreError> {
-        // ASK: How to deal with unwrap here
+        // TODO: How to deal with unwrap here
         let mut manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), &master_password)?;
 
         let entry = PasswordEntry::new(
@@ -86,7 +86,7 @@ impl AddArgs {
         );
 
         // Push the new entries
-        manager.push(entry);
+        manager.push_entry(entry);
 
         // New entries are pushed to database
         manager
