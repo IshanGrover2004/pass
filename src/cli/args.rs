@@ -61,16 +61,27 @@ pub struct AddArgs {
     service: String,
 
     /// Username/email of the account
-    #[clap(short = 'n', long = None)]
+    #[clap(long, short, default_value = None)]
     username: Option<String>,
 
     /// Password of the account (if not provided, a random password will be generated)
-    #[clap(short = 'p', default_value = None)]
+    #[clap(long, short, default_value = None)]
     password: Option<String>,
 
     /// Notes for the account
-    #[clap(short = 'm', default_value = None)]
+    #[clap(long, short, default_value = None)]
     notes: Option<String>,
+}
+
+impl Into<PasswordEntry> for &AddArgs {
+    fn into(self) -> PasswordEntry {
+        PasswordEntry::new(
+            self.service.to_owned(),
+            self.username.to_owned(),
+            self.password.to_owned(),
+            self.notes.to_owned(),
+        )
+    }
 }
 
 impl AddArgs {
@@ -78,19 +89,12 @@ impl AddArgs {
         // TODO: How to deal with unwrap here
         let mut manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), &master_password)?;
 
-        let entry = PasswordEntry::new(
-            self.service.to_owned(),
-            self.username.to_owned(),
-            self.password.to_owned(),
-            self.notes.to_owned(),
-        );
-
         // Push the new entries
-        manager.push_entry(entry);
+        manager.push_entry(self.into());
 
         // New entries are pushed to database
         manager
-            .dump_to_db(PASS_ENTRY_STORE.to_path_buf(), &master_password)
+            .dump(PASS_ENTRY_STORE.to_path_buf(), &master_password)
             .unwrap();
 
         Ok(())
