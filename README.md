@@ -63,7 +63,7 @@ TODO: Usage of commands images
 
 ### Contributing
 
-Contributions are welcome! If you’d like to contribute, please feel free to open an issue or submit a pull request. Checkout our [CONTRIBUTING](https://github.com/tanveerraza789/pass/blob/main/CONTRIBUTING.md) file for details on how to contribute.
+Contributions are welcome! If you’d like to contribute, please feel free to open an issue or submit a pull request. Checkout our [CONTRIBUTING](./CONTRIBUTING.md) file for details on how to contribute.
 
 ### License
 
