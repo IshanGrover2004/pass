@@ -11,7 +11,7 @@ impl Password {
     pub fn new(password: Option<impl AsRef<[u8]>>) -> Self {
         let pass = match password {
             Some(pass) => pass.as_ref().to_vec(),
-            None => generate_random_password(12).as_ref().to_vec(),
+            None => generate_random_password(12).as_ref().as_bytes().to_vec(),
         };
 
         Password { password: pass }
