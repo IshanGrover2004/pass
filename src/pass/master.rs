@@ -105,11 +105,10 @@ impl MasterPassword<Uninit> {
 
     pub fn password_input() -> Result<impl AsRef<str>, MasterPasswordError> {
         colour::green!("Enter Master password: ");
-        let mut master_password = String::new();
-        std::io::stdin()
-            .read_line(&mut master_password)
-            .map_err(|e| MasterPasswordError::UnableToReadFromConsole(e))?;
-        Ok(master_password.trim().to_owned())
+        let master_password =
+            rpassword::read_password().map_err(MasterPasswordError::UnableToReadFromConsole)?;
+
+        Ok(master_password.to_owned())
     }
 
     // Check if master password is correct
@@ -179,9 +178,8 @@ impl MasterPassword<Unlocked> {
     pub fn change(&mut self) -> Result<(), MasterPasswordError> {
         let mut password = String::new();
         colour::green!("Enter new master password: ");
-        std::io::stdin()
-            .read_line(&mut password)
-            .map_err(|e| MasterPasswordError::UnableToReadFromConsole(e))?;
+        let password =
+            rpassword::read_password().map_err(MasterPasswordError::UnableToReadFromConsole)?;
 
         if is_strong_password(&password) {
             let password = password.trim();
