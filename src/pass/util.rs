@@ -81,7 +81,7 @@ pub fn is_strong_password(password: impl AsRef<str>) -> bool {
 }
 
 // Generate random password of given length
-pub fn generate_random_password(length: u8) -> impl AsRef<[u8]> {
+pub fn generate_random_password(length: u8) -> impl AsRef<str> {
     use rand::Rng;
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                         abcdefghijklmnopqrstuvwxyz\
