@@ -1,4 +1,3 @@
-// Importing...
 use clap::{Args, Parser, Subcommand};
 
 use crate::pass::{
@@ -48,11 +47,7 @@ pub enum Commands {
 }
 
 #[derive(Args)]
-pub struct InitArgs {
-    /// Master password for the pass
-    #[clap(required = false, default_value = "")]
-    master_password: String,
-}
+pub struct InitArgs {}
 
 #[derive(Args, Debug)]
 pub struct AddArgs {
@@ -61,7 +56,7 @@ pub struct AddArgs {
     service: String,
 
     /// Username/email of the account
-    #[clap(long, short, default_value = None)]
+    #[clap(long, short, aliases=&["user"], default_value = None)]
     username: Option<String>,
 
     /// Password of the account (if not provided, a random password will be generated)
@@ -102,10 +97,6 @@ impl AddArgs {
 
 #[derive(Args)]
 pub struct RemoveArgs {
-    /// Master password required for authentication
-    #[clap(required = false, default_value = "")]
-    master_password: String,
-
     /// Username/email of the account
     // #[clap(short = 'n', long = "name")]
     username: String,
@@ -113,36 +104,69 @@ pub struct RemoveArgs {
 
 #[derive(Args)]
 pub struct UpdateArgs {
-    /// Master password required for authentication
-    #[clap(required = false, default_value = "")]
-    master_password: String,
-
     /// Username/email of the account
     // #[clap(short = 'n', long = "name")]
     username: String,
 }
 
 #[derive(Args)]
-pub struct ListArgs {
-    /// Master password required for authentication
-    #[clap(required = false, default_value = "")]
-    master_password: String,
-}
+pub struct ListArgs {}
 
 #[derive(Args)]
 pub struct GetArgs {
-    // /// Master password required for authentication
-    // #[clap(default_value = "")]
-    // master_password: String,
-    //
     /// Username/email of the account
     // #[clap(short = 'n', long = "name")]
     username: String,
 }
 
-#[derive(Args)]
+#[derive(Args, Debug)]
 pub struct GenArgs {
     /// Length of generated password
     #[clap(default_value_t = 12)]
-    pub length: u8,
+    length: usize,
+
+    /// Number of password to be generated
+    #[arg(short = 'n', default_value_t = 1)]
+    count: usize,
+
+    /// Flag to include uppercase letters in password
+    #[arg(short = 'U')]
+    uppercase: bool,
+
+    /// Flag to include lowercase letters in password [default: true]
+    #[arg(short = 'u', default_value_t = true)]
+    lowercase: bool,
+
+    /// Flag to include digits in password [default: true]
+    #[arg(short, default_value_t = true)]
+    digits: bool,
+
+    /// Flag to include symbols in password
+    #[arg(short)]
+    symbols: bool,
+}
+
+impl GenArgs {
+    pub fn generate_password(self) {
+        let password_generator = passwords::PasswordGenerator::new()
+            .length(self.length)
+            .lowercase_letters(self.lowercase)
+            .uppercase_letters(self.uppercase)
+            .numbers(self.digits)
+            .symbols(self.symbols)
+            .strict(true);
+
+        if self.count > 1 {
+            let passwords = password_generator.generate(self.count).unwrap();
+
+            for password in passwords {
+                colour::e_yellow_ln!("{password}");
+            }
+        } else {
+            let password = password_generator.generate_one().unwrap();
+            println!("{password}");
+
+            // TODO: Password copy_to_clipboard
+        }
+    }
 }
