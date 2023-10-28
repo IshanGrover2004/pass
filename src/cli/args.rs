@@ -68,13 +68,13 @@ pub struct AddArgs {
     notes: Option<String>,
 }
 
-impl Into<PasswordEntry> for &AddArgs {
-    fn into(self) -> PasswordEntry {
+impl From<&AddArgs> for PasswordEntry {
+    fn from(value: &AddArgs) -> Self {
         PasswordEntry::new(
-            self.service.to_owned(),
-            self.username.to_owned(),
-            self.password.to_owned(),
-            self.notes.to_owned(),
+            value.service.to_owned(),
+            value.username.to_owned(),
+            value.password.to_owned(),
+            value.notes.to_owned(),
         )
     }
 }
@@ -89,9 +89,7 @@ impl AddArgs {
         manager.push_entry(self.into());
 
         // New entries are pushed to database
-        manager
-            .dump(PASS_ENTRY_STORE.to_path_buf(), &master_password)
-            .map_err(|e| e)?;
+        manager.dump(PASS_ENTRY_STORE.to_path_buf(), &master_password)?;
 
         Ok(())
     }
