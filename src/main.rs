@@ -5,16 +5,21 @@ pub mod pass;
 
 use cli::run_cli;
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     run_cli();
+
+    Ok(())
 }
 
 // For custom name of project -> cargo install --path . && pass
 
-// TODO: Add clap for command line arguments
-// TODO: Add bcrypt for hashing passwords
-// TODO: Add file handling for storing passwords
-// TODO: Add anyhow for Error handling
-// TODO: Add rsin_rs for formating in file
-// TODO: Add serde_encrypt for encrypting things
-// TODO: Add bincode for bytes conversion & vice-versa operations
+// TO Check:
+// - Module
+// - Unwrap/Error handle
+
+// To ASK:
+// - Storing SALT
+// - entry.rs 24 line no. exposing info to pub
+
+// TODO: Add useful test for every files
+//

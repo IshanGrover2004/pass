@@ -73,7 +73,6 @@ struct AccColl {
 
 fn fill_file() {
     let accounts = (0..100000)
-        .into_iter()
         .map(|_| Account::new_rand())
         .map(|acc| (acc.name.clone(), acc))
         .collect::<HashMap<_, _>>();
@@ -89,11 +88,11 @@ fn read_file() {
 }
 
 pub fn create_benchmark(c: &mut Criterion) {
-    c.bench_function("Create account", |b| b.iter(|| fill_file()));
+    c.bench_function("Create account", |b| b.iter(fill_file));
 }
 
 pub fn read_benchmark(c: &mut Criterion) {
-    c.bench_function("Read accounts", |b| b.iter(|| read_file()));
+    c.bench_function("Read accounts", |b| b.iter(read_file));
 }
 
 // criterion_group!(benches, read_benchmark);
