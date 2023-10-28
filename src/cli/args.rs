@@ -10,7 +10,7 @@ use crate::pass::{
 #[clap(
     name = "pass",
     version = "0.0.1",
-    author = "Ishan",
+    author = "Ishan Grover & Tanveer Raza",
     about = "A easy-to-use CLI password manager"
 )]
 pub struct Cli {
@@ -47,7 +47,7 @@ pub enum Commands {
 }
 
 #[derive(Args)]
-pub struct InitArgs {}
+pub struct InitArgs;
 
 #[derive(Args, Debug)]
 pub struct AddArgs {
@@ -83,13 +83,15 @@ impl AddArgs {
     pub fn add_entries(&self, master_password: impl AsRef<[u8]>) -> Result<(), PasswordStoreError> {
         let mut manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), &master_password)?;
 
+        // TODO: If same service & username PasswordEntry exist
+
         // Push the new entries
         manager.push_entry(self.into());
 
         // New entries are pushed to database
         manager
             .dump(PASS_ENTRY_STORE.to_path_buf(), &master_password)
-            .unwrap();
+            .map_err(|e| e)?;
 
         Ok(())
     }
@@ -157,14 +159,21 @@ impl GenArgs {
             .strict(true);
 
         if self.count > 1 {
-            let passwords = password_generator.generate(self.count).unwrap();
-
-            for password in passwords {
-                colour::e_yellow_ln!("{password}");
+            match password_generator.generate(self.count) {
+                Ok(passwords) => {
+                    for password in passwords {
+                        colour::e_yellow_ln!("{password}");
+                    }
+                }
+                Err(_) => eprintln!("Error in creating passwords"),
             }
         } else {
-            let password = password_generator.generate_one().unwrap();
-            println!("{password}");
+            match password_generator.generate_one() {
+                Ok(password) => {
+                    colour::e_yellow_ln!("{password}");
+                }
+                Err(_) => eprintln!("Error in creating password"),
+            }
 
             // TODO: Password copy_to_clipboard
         }
