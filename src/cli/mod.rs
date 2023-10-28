@@ -5,7 +5,7 @@ use clap::Parser;
 
 use crate::{
     cli::args::{Cli, Commands},
-    pass::master::{MasterPassword, MasterPasswordError},
+    pass::master::MasterPassword,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -48,12 +48,10 @@ pub fn run_cli() -> anyhow::Result<()> {
 
         Some(Commands::Add(args)) => {
             // To Ask: Douwn map_err syntax by clippy
-            let master_password = MasterPassword::password_input()
-                .map_err(MasterPasswordError::UnableToReadFromConsole)?;
-
+            let master_password = MasterPassword::password_input()?;
             match MasterPassword::verify(&master_password) {
                 Ok(true) => {
-                    args.add_entries(master_password.as_ref());
+                    args.add_entries(master_password.as_ref()).unwrap();
                 }
                 Ok(false) => {
                     colour::red!("Incorrect MasterPassword");
