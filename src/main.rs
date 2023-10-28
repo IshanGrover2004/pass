@@ -6,8 +6,7 @@ pub mod pass;
 use cli::run_cli;
 
 fn main() -> anyhow::Result<()> {
-    run_cli();
-
+    run_cli().expect("Unable to run cli");
     Ok(())
 }
 

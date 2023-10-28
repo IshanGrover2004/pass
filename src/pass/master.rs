@@ -19,8 +19,8 @@ pub enum MasterPasswordError {
     #[error("Unable to create dirs for password storage")]
     UnableToCreateDirs(std::io::Error),
 
-    #[error("Cannot read from console due to: {0}")]
-    UnableToReadFromConsole(#[from] std::io::Error),
+    #[error("Cannot read from console due to IO error")]
+    UnableToReadFromConsole,
 
     #[error("Unable to write into master password store file: {0}")]
     UnableToWriteFile(std::io::Error),
@@ -106,7 +106,7 @@ impl MasterPassword<Uninit> {
     pub fn password_input() -> Result<impl AsRef<str>, MasterPasswordError> {
         colour::green!("Enter Master password: ");
         let master_password =
-            rpassword::read_password().map_err(MasterPasswordError::UnableToReadFromConsole)?;
+            rpassword::read_password().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
         Ok(master_password.to_owned())
     }
@@ -176,17 +176,16 @@ impl MasterPassword<Unlocked> {
 
     // To change master password
     pub fn change(&mut self) -> Result<(), MasterPasswordError> {
-        let mut password = String::new();
         colour::green!("Enter new master password: ");
         let password =
-            rpassword::read_password().map_err(MasterPasswordError::UnableToReadFromConsole)?;
+            rpassword::read_password().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
         if is_strong_password(&password) {
             let password = password.trim();
             self.unlocked_pass = Some(password.as_bytes().to_vec());
             let hash = hash(&password)
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
-            self.hash = Some(hash);
+            self.hash = Some(hash.clone());
 
             std::fs::write(MASTER_PASS_STORE.to_path_buf(), hash)
                 .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
@@ -214,6 +213,6 @@ mod test {
     #[test]
     fn check_init() {
         let master = MasterPassword::new();
-        let unlocked = master.unwrap().unlock();
+        let _unlocked = master.unwrap().unlock();
     }
 }
