@@ -62,11 +62,11 @@ pub fn run_cli() -> anyhow::Result<()> {
             };
         }
 
-        Some(Commands::Remove(args)) => {
+        Some(Commands::Remove(_args)) => {
             unimplemented!();
         }
 
-        Some(Commands::Update(args)) => {
+        Some(Commands::Update(_args)) => {
             unimplemented!();
         }
 
@@ -74,7 +74,7 @@ pub fn run_cli() -> anyhow::Result<()> {
             unimplemented!();
         }
 
-        Some(Commands::Get(args)) => {
+        Some(Commands::Get(_args)) => {
             unimplemented!();
         }
 

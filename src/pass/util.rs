@@ -54,7 +54,7 @@ pub fn get_random_salt() -> [u8; 16] {
 // Generate hash for given content
 pub fn hash(content: impl AsRef<str>) -> Result<Vec<u8>, UtilError> {
     Ok(bcrypt::hash(content.as_ref(), bcrypt::DEFAULT_COST)
-        .map_err(|e| UtilError::BcryptError(String::from("Unable to hash password")))?
+        .map_err(|_| UtilError::BcryptError(String::from("Unable to hash password")))?
         .as_bytes()
         .to_vec())
 }

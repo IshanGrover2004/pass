@@ -123,8 +123,7 @@ impl PasswordStore {
             PasswordStoreError::UnableToEncryptError("Failed to encrypt entry".to_owned())
         })?;
 
-        std::fs::write(file_path, encrypted_data)
-            .map_err(|e| PasswordStoreError::UnableToWriteFile(e))?;
+        std::fs::write(file_path, encrypted_data).map_err(PasswordStoreError::UnableToWriteFile)?;
 
         Ok(())
     }
@@ -134,18 +133,15 @@ impl PasswordStore {
         file_path: impl AsRef<Path>,
         master_pass: impl AsRef<[u8]>,
     ) -> Result<Self, PasswordStoreError> {
-        let encrypted_data =
-            std::fs::read(file_path).map_err(|e| PasswordStoreError::UnableToRead(e))?;
+        let encrypted_data = std::fs::read(file_path).map_err(PasswordStoreError::UnableToRead)?;
 
         if encrypted_data.is_empty() {
             return Ok(PasswordStore { passwords: vec![] });
         }
 
-        Ok(
-            PasswordStore::decrypt_entry(encrypted_data, master_pass).map_err(|_| {
-                PasswordStoreError::UnableToDecryptError("Failed to decrypt entries".to_owned())
-            })?,
-        )
+        PasswordStore::decrypt_entry(encrypted_data, master_pass).map_err(|_| {
+            PasswordStoreError::UnableToDecryptError("Failed to decrypt entries".to_owned())
+        })
     }
 
     // Remove entries from existing entries
