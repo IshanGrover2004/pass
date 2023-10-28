@@ -20,7 +20,7 @@ pub enum MasterPasswordError {
     UnableToCreateDirs(std::io::Error),
 
     #[error("Cannot read from console due to: {0}")]
-    UnableToReadFromConsole(std::io::Error),
+    UnableToReadFromConsole(#[from] std::io::Error),
 
     #[error("Unable to write into master password store file: {0}")]
     UnableToWriteFile(std::io::Error),
@@ -188,7 +188,7 @@ impl MasterPassword<Unlocked> {
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
             self.hash = Some(hash);
 
-            std::fs::write(MASTER_PASS_STORE.to_path_buf(), self.hash.as_ref().unwrap())
+            std::fs::write(MASTER_PASS_STORE.to_path_buf(), hash)
                 .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
             Ok(())
         } else {

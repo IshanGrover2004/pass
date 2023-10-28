@@ -1,4 +1,4 @@
-use std::{num::NonZeroU32, path::PathBuf};
+use std::num::NonZeroU32;
 
 use once_cell::sync::Lazy;
 use ring::{
@@ -31,6 +31,7 @@ where
 {
     let mut encryption_key = [0_u8; 32];
 
+    // TODO: Derive key by PBKDF2 & remove ring
     pbkdf2::derive(
         pbkdf2::PBKDF2_HMAC_SHA256,
         NonZeroU32::new(600_000).unwrap(),
@@ -101,9 +102,5 @@ pub fn generate_random_password(length: u8) -> impl AsRef<str> {
 
 // To check any pass initialised
 pub fn is_pass_initialised() -> bool {
-    let master = MASTER_PASS_STORE.to_path_buf();
-    let paths = master.to_str();
-    let path_buf = PathBuf::from(paths.unwrap());
-
-    path_buf.exists()
+    MASTER_PASS_STORE.to_path_buf().exists()
 }
