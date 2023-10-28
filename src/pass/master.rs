@@ -56,7 +56,7 @@ impl MasterPassword<Uninit> {
         // Check if pass not exist
         if MASTER_PASS_STORE.exists() {
             let hashed_password = std::fs::read(MASTER_PASS_STORE.to_path_buf())
-                .map_err(|e| MasterPasswordError::UnableToRead(e))?;
+                .map_err(MasterPasswordError::UnableToRead)?;
 
             colour::green!("Pass already initialised!!\n");
 
@@ -70,7 +70,7 @@ impl MasterPassword<Uninit> {
         else {
             if !PASS_DIR_PATH.exists() {
                 std::fs::create_dir_all(PASS_DIR_PATH.to_owned())
-                    .map_err(|e| MasterPasswordError::UnableToCreateDirs(e))?
+                    .map_err(MasterPasswordError::UnableToCreateDirs)?
             }
 
             let prompt_master_password = MasterPassword::prompt()?;
@@ -78,7 +78,7 @@ impl MasterPassword<Uninit> {
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
 
             std::fs::write(MASTER_PASS_STORE.to_path_buf(), &hashed_password)
-                .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
+                .map_err(MasterPasswordError::UnableToWriteFile)?;
 
             colour::green!("Pass Initialising...\n");
 
@@ -115,13 +115,13 @@ impl MasterPassword<Uninit> {
     pub fn verify(master_password: impl AsRef<str>) -> Result<bool, MasterPasswordError> {
         let hashed_password: String = String::from_utf8(
             std::fs::read(MASTER_PASS_STORE.to_path_buf())
-                .map_err(|e| MasterPasswordError::UnableToRead(e))?,
+                .map_err(MasterPasswordError::UnableToRead)?,
         )
         .map_err(|_| {
             MasterPasswordError::UnableToConvert(String::from("Error in converting utf8 -> String"))
         })?;
 
-        match bcrypt::verify(&master_password.as_ref(), hashed_password.as_str()) {
+        match bcrypt::verify(master_password.as_ref(), hashed_password.as_str()) {
             Ok(is_correct) => Ok(is_correct),
             Err(_) => Err(MasterPasswordError::BcryptError(String::from(
                 "Unable to hash password",
@@ -134,9 +134,7 @@ impl MasterPassword<Uninit> {
 impl MasterPassword<Locked> {
     // Unlock the master password
     pub fn unlock(&self) -> Result<MasterPassword<Unlocked>, MasterPasswordError> {
-        std::io::stdout()
-            .flush()
-            .map_err(|e| MasterPasswordError::IO(e))?; // Flush the output to ensure prompt is displayed
+        std::io::stdout().flush().map_err(MasterPasswordError::IO)?; // Flush the output to ensure prompt is displayed
 
         const MAX_ATTEMPT: u32 = 3;
 
@@ -183,12 +181,12 @@ impl MasterPassword<Unlocked> {
         if is_strong_password(&password) {
             let password = password.trim();
             self.unlocked_pass = Some(password.as_bytes().to_vec());
-            let hash = hash(&password)
+            let hash = hash(password)
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
             self.hash = Some(hash.clone());
 
             std::fs::write(MASTER_PASS_STORE.to_path_buf(), hash)
-                .map_err(|e| MasterPasswordError::UnableToWriteFile(e))?;
+                .map_err(MasterPasswordError::UnableToWriteFile)?;
             Ok(())
         } else {
             colour::red!("Password is not strong enough!\n");
