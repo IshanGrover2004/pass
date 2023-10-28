@@ -2,6 +2,7 @@
 pub mod args;
 
 use clap::Parser;
+use passwords::PasswordGenerator;
 
 use crate::{
     cli::args::{Cli, Commands},
@@ -60,9 +61,7 @@ pub fn run_cli() {
         }
 
         Commands::Gen(args) => {
-            // Generate a random password
-            let my_password = generate_random_password(args.length);
-            println!("{:?}", my_password.as_ref());
+            args.generate_password();
         }
     };
 }
