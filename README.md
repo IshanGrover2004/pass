@@ -1,6 +1,6 @@
 # pass
 
-pass is a command-line tool for generating and managing passwords. It is easy-to-use CLI tool.
+Pass is a simple and secure password manager written in Rust, designed to help you store and manage your passwords with ease. It offers features like password generation, encryption, and a user-friendly command-line interface.
 
 ## Table of Contents
 
@@ -16,21 +16,20 @@ pass is a command-line tool for generating and managing passwords. It is easy-to
 
 - **Password Management**: Store and organize your passwords securely.
 - **Password Generation**: Easily create strong and random passwords with customizable options.
-- **Encryption**: All stored passwords are encrypted for enhanced security.
+- **Encryption**: All stored passwords are encrypted for enhanced security. Encryption is done using `XChaCha20-Poly1305`.
 - **Command-Line Interface**: A user-friendly and scriptable CLI for quick access to your passwords.
 
 ### Installation
 
 To install `pass`, you need to have Rust and Cargo (Rust's package manager) installed. Then, you can use Cargo to install `pass` as follows:
 
-```shell
-cargo install pass
-```
-
-or
-
+1. Clone the repository:  
 ```shell
 git clone https://github.com/tanveerraza789/pass && cd pass
+```
+
+2. Install the pass:
+```shell
 cargo install --path .
 ```
 
@@ -46,7 +45,7 @@ Subcommands:
   list           List all made password
   get            Get a password
   gen            Generate a password
-  help           Print all options & subcommands
+  help           Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
