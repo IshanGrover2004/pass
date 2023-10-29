@@ -138,6 +138,8 @@ impl MasterPassword<Locked> {
 
         const MAX_ATTEMPT: u32 = 3;
 
+        // TODO: Fix when wrong master password input then program panics
+
         (0..MAX_ATTEMPT)
             .find_map(|attempt| {
                 let master_pass_prompt = MasterPassword::password_input().ok()?;
