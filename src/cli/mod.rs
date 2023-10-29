@@ -5,7 +5,7 @@ use clap::Parser;
 
 use crate::{
     cli::args::{Cli, Commands},
-    pass::master::MasterPassword,
+    pass::{master::MasterPassword, util::is_pass_initialised},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -27,23 +27,24 @@ pub fn run_cli() -> anyhow::Result<()> {
 
     match args.commands {
         Some(Commands::Init(_)) => {
-            MasterPassword::new().map_err(|_| CliError::UnableToCreateMaster)?;
+            match is_pass_initialised() {
+                true => {
+                    colour::green!("Pass already initialised!!\n");
+                }
+                false => {
+                    MasterPassword::new()?;
+                }
+            };
         }
 
         Some(Commands::ChangeMaster) => {
-            let master = MasterPassword::new().map_err(|_| CliError::UnableToCreateMaster)?;
+            let master = MasterPassword::new()?;
 
-            let mut unlocked = master
-                .unlock()
-                .map_err(|_| CliError::UnableToUnlockMaster)?;
+            let mut unlocked = master.unlock()?;
 
-            unlocked
-                .change()
-                .map_err(|_| CliError::UnableToChangeMaster)?;
+            unlocked.change()?;
 
             unlocked.lock();
-
-            colour::green_ln!("Master password changed successfully");
         }
 
         Some(Commands::Add(args)) => {
