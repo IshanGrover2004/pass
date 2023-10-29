@@ -83,8 +83,6 @@ impl AddArgs {
     pub fn add_entries(&self, master_password: impl AsRef<[u8]>) -> Result<(), PasswordStoreError> {
         let mut manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), &master_password)?;
 
-        // TODO: If same service & username PasswordEntry exist
-
         // Push the new entries
         manager.push_entry(self.into());
 

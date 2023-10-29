@@ -102,7 +102,7 @@ impl PasswordStore {
     // Add entries to the existing entries
     pub fn push_entry(&mut self, entry: PasswordEntry) {
         let is_dupe = self.passwords.iter().any(|current_entry| {
-            current_entry.service == entry.service //&& current_entry.username == entry.username
+            current_entry.service == entry.service && current_entry.username == entry.username
         });
 
         if !is_dupe {
