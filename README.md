@@ -58,7 +58,7 @@ TODO: Usage of commands images
 
 ### How it works
 
-![storage of passwords](./docs/pass_store.png)
+![storage of passwords](./docs/pass_store_flow.png)
 
 ### Contributing
 
