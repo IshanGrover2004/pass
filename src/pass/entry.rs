@@ -75,7 +75,7 @@ mod test {
         println!("Random password generating: ");
         dbg!(Password::new(None::<&str>));
 
-        println!("\nPassword Inputed: ");
+        println!("\nPassword Input: ");
         dbg!(Password::new(Some("PasswordInputed")));
     }
 }

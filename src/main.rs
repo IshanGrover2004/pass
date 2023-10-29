@@ -21,4 +21,3 @@ fn main() -> anyhow::Result<()> {
 // - entry.rs 24 line no. exposing info to pub
 
 // TODO: Add useful test for every files
-// TODO: Ask for Confirm Master password
