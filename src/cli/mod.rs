@@ -43,23 +43,30 @@ pub fn run_cli() -> anyhow::Result<()> {
 
             unlocked.lock();
 
-            colour::green!("Master Password changed successfully");
+            colour::green_ln!("Master password changed successfully");
         }
 
         Some(Commands::Add(args)) => {
-            // To Ask: Douwn map_err syntax by clippy
-            let master_password = MasterPassword::password_input()?;
-            match MasterPassword::verify(&master_password) {
-                Ok(true) => {
-                    args.add_entries(master_password.as_ref()).unwrap();
-                }
-                Ok(false) => {
-                    colour::red!("Incorrect MasterPassword");
-                }
-                Err(error) => {
-                    eprintln!("{:?}", error);
-                }
-            };
+            for attempt in 0..3 {
+                let master_password =
+                    MasterPassword::password_input().expect("Unable to read input from IO console");
+                match MasterPassword::verify(&master_password) {
+                    Ok(true) => {
+                        args.add_entries(master_password.as_ref())?;
+                        break;
+                    }
+                    Ok(false) => {
+                        if attempt < 2 {
+                            colour::red_ln!("Incorrect master password, retry ({}):", 2 - attempt);
+                        } else {
+                            colour::red_ln!("Wrong master password");
+                        }
+                    }
+                    Err(_) => {
+                        colour::e_red_ln!("Failed to add password");
+                    }
+                };
+            }
         }
 
         Some(Commands::Remove(_args)) => {
@@ -95,10 +102,11 @@ pub fn run_cli() -> anyhow::Result<()> {
 "#;
 
             const ABOUT_MSG: &str = r"Welcome to Pass! 🔒
-Type $ pass --help for looking all options & commands";
+Type $ pass --help to have a look on all options & commands
+Type $ pass init for setting up your master password.";
 
-            colour::red!("{ASCII_ART_ABOUT}");
-            colour::white!("{ABOUT_MSG}")
+            colour::red_ln!("{ASCII_ART_ABOUT}");
+            colour::white_ln!("{ABOUT_MSG}")
         }
     };
 
