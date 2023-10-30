@@ -23,14 +23,8 @@ Pass is a simple and secure password manager written in Rust, designed to help y
 
 To install `pass`, you need to have Rust and Cargo (Rust's package manager) installed. Then, you can use Cargo to install `pass` as follows:
 
-1. Clone the repository:  
 ```shell
-git clone https://github.com/tanveerraza789/pass && cd pass
-```
-
-2. Install the pass:
-```shell
-cargo install --path .
+cargo install --git https://github.com/tanveerraza789/pass.git
 ```
 
 ### CLI Commands
