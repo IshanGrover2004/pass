@@ -3,6 +3,7 @@ use clap::{Args, Parser, Subcommand};
 use crate::pass::{
     entry::PasswordEntry,
     store::{PasswordStore, PasswordStoreError, PASS_ENTRY_STORE},
+    util::copy_to_clipboard,
 };
 
 // CLI Design
@@ -131,12 +132,12 @@ pub struct GenArgs {
     #[arg(short = 'U')]
     uppercase: bool,
 
-    /// Flag to include lowercase letters in password [default: true]
-    #[arg(short = 'u', default_value_t = true)]
+    /// Flag to include lowercase letters in password
+    #[arg(short = 'u')]
     lowercase: bool,
 
-    /// Flag to include digits in password [default: true]
-    #[arg(short, default_value_t = true)]
+    /// Flag to include digits in password
+    #[arg(short)]
     digits: bool,
 
     /// Flag to include symbols in password
@@ -146,13 +147,26 @@ pub struct GenArgs {
 
 impl GenArgs {
     pub fn generate_password(self) {
-        let password_generator = passwords::PasswordGenerator::new()
-            .length(self.length)
-            .lowercase_letters(self.lowercase)
-            .uppercase_letters(self.uppercase)
-            .numbers(self.digits)
-            .symbols(self.symbols)
-            .strict(true);
+        let password_generator;
+
+        // If no flags is given then generate a password including Uppercase, lowercase & digits
+        if self.digits || self.lowercase || self.uppercase || self.symbols {
+            password_generator = passwords::PasswordGenerator::new()
+                .length(self.length)
+                .lowercase_letters(self.lowercase)
+                .uppercase_letters(self.uppercase)
+                .numbers(self.digits)
+                .symbols(self.symbols)
+                .strict(true);
+        } else {
+            password_generator = passwords::PasswordGenerator::new()
+                .length(self.length)
+                .lowercase_letters(true)
+                .uppercase_letters(true)
+                .numbers(true)
+                .symbols(false)
+                .strict(true);
+        }
 
         if self.count > 1 {
             match password_generator.generate(self.count) {
@@ -161,17 +175,23 @@ impl GenArgs {
                         colour::e_yellow_ln!("{password}");
                     }
                 }
-                Err(_) => eprintln!("Error in creating passwords"),
+                Err(_) => colour::e_red_ln!("Error in creating passwords"),
             }
         } else {
             match password_generator.generate_one() {
                 Ok(password) => {
                     colour::e_yellow_ln!("{password}");
+                    match copy_to_clipboard(password) {
+                        Ok(_) => {
+                            colour::green_ln!("Password copied to clipboard");
+                        }
+                        Err(_) => {
+                            colour::e_red_ln!("Unable to copy password");
+                        }
+                    }
                 }
-                Err(_) => eprintln!("Error in creating password"),
+                Err(_) => colour::e_red_ln!("Error in creating passwords"),
             }
-
-            // TODO: Password copy_to_clipboard
         }
     }
 }
