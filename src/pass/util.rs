@@ -22,6 +22,9 @@ pub(crate) static PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BAS
 pub enum UtilError {
     #[error("Bcrypt Error: {0}")]
     BcryptError(String),
+
+    #[error("Unable to read from console")]
+    UnableToReadFromConsole,
 }
 
 // Derive a encryption key from master password & salt
@@ -53,8 +56,8 @@ pub fn get_random_salt() -> [u8; 16] {
 }
 
 // Generate hash for given content
-pub fn hash(content: impl AsRef<str>) -> Result<Vec<u8>, UtilError> {
-    Ok(bcrypt::hash(content.as_ref(), bcrypt::DEFAULT_COST)
+pub fn password_hash(content: impl AsRef<[u8]>) -> Result<Vec<u8>, UtilError> {
+    Ok(bcrypt::hash(content, bcrypt::DEFAULT_COST)
         .map_err(|_| UtilError::BcryptError(String::from("Unable to hash password")))?
         .as_bytes()
         .to_vec())
@@ -117,4 +120,9 @@ pub fn copy_to_clipboard(password: String) -> anyhow::Result<()> {
 // To check any pass initialised
 pub fn is_pass_initialised() -> bool {
     MASTER_PASS_STORE.to_path_buf().exists()
+}
+
+pub fn password_input(message: impl AsRef<str>) -> Result<String, UtilError> {
+    colour::green!("{}", message.as_ref());
+    rpassword::read_password().map_err(|_| UtilError::UnableToReadFromConsole)
 }

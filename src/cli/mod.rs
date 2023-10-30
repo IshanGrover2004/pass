@@ -5,7 +5,10 @@ use clap::Parser;
 
 use crate::{
     cli::args::{Cli, Commands},
-    pass::{master::MasterPassword, util::is_pass_initialised},
+    pass::{
+        master::MasterPassword,
+        util::{self, is_pass_initialised},
+    },
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -21,7 +24,7 @@ pub enum CliError {
 }
 
 // Run the CLI
-pub fn run_cli() -> anyhow::Result<()> {
+pub fn run_cli(&mut master_password: MasterPassword) -> anyhow::Result<()> {
     // Parsing the command line arguments into Cli struct
     let args = Cli::parse();
 
@@ -32,15 +35,15 @@ pub fn run_cli() -> anyhow::Result<()> {
                     colour::green!("Pass already initialised!!\n");
                 }
                 false => {
-                    MasterPassword::new()?;
+                    MasterPassword::new();
                 }
             };
         }
 
         Some(Commands::ChangeMaster) => {
-            let master = MasterPassword::new()?;
+            let master = master_password;
 
-            let mut unlocked = master.unlock()?;
+            let mut unlocked = master.verify()?;
 
             unlocked.change()?;
 
@@ -49,8 +52,8 @@ pub fn run_cli() -> anyhow::Result<()> {
 
         Some(Commands::Add(args)) => {
             for attempt in 0..3 {
-                let master_password =
-                    MasterPassword::password_input().expect("Unable to read input from IO console");
+                let master_password = util::password_input("Enter Master password: ")
+                    .expect("Unable to read input from IO console");
                 match MasterPassword::verify(&master_password) {
                     Ok(true) => {
                         args.add_entries(master_password.as_ref())?;
