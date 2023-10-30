@@ -1,9 +1,9 @@
-use std::{io::Write, marker::PhantomData};
+use std::{io::Write, marker::PhantomData, os::unix::prelude::OsStrExt};
 
 use once_cell::sync::Lazy;
 
-use super::util::is_strong_password;
-use crate::pass::util::{hash, PASS_DIR_PATH, XDG_BASE};
+use super::util::{is_strong_password, password_input};
+use crate::pass::util::{password_hash, PASS_DIR_PATH, XDG_BASE};
 
 pub static MASTER_PASS_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
     XDG_BASE
@@ -36,153 +36,211 @@ pub enum MasterPasswordError {
 
     #[error("Unable to use Console IO: {0}")]
     IO(#[source] std::io::Error),
+
+    #[error("Master password was not confirmed")]
+    MasterPassConfirm,
+
+    #[error("Master password is not strong enough")]
+    PassNotStrong,
 }
 
-// Initialising States & possibilities pub struct Uninit;
-pub struct Uninit;
-pub struct Locked;
-pub struct Unlocked;
+/// Initial state of [MasterPassword]
+pub struct UnInit;
+
+/// Initial state of [MasterPassword]
+pub struct Init;
+
+/// Unverified state of [MasterPassword]
+pub struct UnVerified;
+
+/// Verfied state of [MasterPassword]
+pub struct Verified;
 
 #[derive(Debug, Default)]
-pub struct MasterPassword<State = Uninit> {
+pub struct MasterPassword<State = UnInit> {
+    /// Master password
+    master_pass: Option<Vec<u8>>,
+    /// Master password hashed
     hash: Option<Vec<u8>>,
-    unlocked_pass: Option<Vec<u8>>,
+    /// [MasterPassword] state
     state: PhantomData<State>,
 }
 
-// MasterPassword impl for UnInitialised state
-impl MasterPassword<Uninit> {
-    pub fn new() -> Result<MasterPassword<Locked>, MasterPasswordError> {
-        // Check if pass not exist
+impl Default for MasterPassword<Init> {
+    fn default() -> Self {
+        Self {
+            master_pass: Default::default(),
+            hash: Default::default(),
+            state: Default::default(),
+        }
+    }
+}
+
+impl MasterPassword<UnInit> {
+    pub fn new() -> MasterPassword<Init> {
+        MasterPassword::default()
+    }
+}
+
+impl MasterPassword<Init> {
+    pub fn init(&mut self) -> Result<MasterPassword<UnVerified>, MasterPasswordError> {
         if MASTER_PASS_STORE.exists() {
             let hashed_password = std::fs::read(MASTER_PASS_STORE.to_path_buf())
                 .map_err(MasterPasswordError::UnableToRead)?;
 
             Ok(MasterPassword {
                 hash: Some(hashed_password),
-                unlocked_pass: None,
-                state: PhantomData::<Locked>,
+                master_pass: None,
+                state: PhantomData::<UnVerified>,
             })
         }
-        // if not exist create & ask user for master_password
+        // id master password doesn't exist in db, generate a new one
         else {
-            if !PASS_DIR_PATH.exists() {
-                std::fs::create_dir_all(PASS_DIR_PATH.to_owned())
-                    .map_err(MasterPasswordError::UnableToCreateDirs)?
+            std::fs::create_dir_all(PASS_DIR_PATH.to_owned())
+                .map_err(MasterPasswordError::UnableToCreateDirs)?;
+
+            // Ask user master password
+            let master_pass_input: String = password_input("Enter master password:")
+                .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+
+            // Checking if master password is strong
+            if !is_strong_password(&master_pass_input) {
+                colour::red!("Password is not strong enough!\n");
+                return Err(MasterPasswordError::PassNotStrong)?;
             }
 
-            let prompt_master_password = MasterPassword::prompt()?;
+            // If we want to give 3 tries for password confirmation
+            // let max_attempts = 3;
+            // let is_password_matched = (0..max_attempts)
+            //     .map(|attempt| {
+            //         password_input("Confirm master password")
+            //             .and_then(|confirm_password| {
+            //                 if master_pass_input.as_ref() == &confirm_password {
+            //                     Ok(true)
+            //                 } else if attempt == max_attempts - 1 {
+            //                     colour::e_red_ln!("Password doesn't match");
+            // MasterPasswordErrors::exit(1);
+            //                 } else {
+            //                     colour::e_red_ln!(
+            //                         "Confirm password does not match, retry({})",
+            //                         max_attempts - 1 - attempt
+            //                     );
+            //                     Ok(false)
+            //                 }
+            //             })
+            //             .unwrap_or(false)
+            //     })
+            //     .any(|password_match| password_match);
 
-            for attempt in 0..3 {
-                colour::green!("Confirm master password: ");
-                let confirm_master_password = rpassword::read_password()
-                    .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+            let confirm_pass = password_input("Confirm master pass:")
+                .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
-                if prompt_master_password.as_ref() == confirm_master_password {
-                    break;
-                }
-                if attempt == 2 {
-                    colour::e_red_ln!("Confirm password does not match");
-                    std::process::exit(1);
-                }
-                colour::e_red_ln!("Confirm password does not match, retry({})", 2 - attempt);
+            if master_pass_input != confirm_pass {
+                colour::e_red_ln!("Password doesn't match");
+                return Err(MasterPasswordError::MasterPassConfirm);
             }
 
-            let hashed_password = hash(&prompt_master_password)
+            // Hashing prompted master password
+            let hashed_password = password_hash(&master_pass_input)
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
 
+            // Store hashed master password
             std::fs::write(MASTER_PASS_STORE.to_path_buf(), &hashed_password)
                 .map_err(MasterPasswordError::UnableToWriteFile)?;
 
-            colour::green!("Pass Initialising...\n");
+            colour::green_ln!("Initialising master pass...");
 
             Ok(MasterPassword {
+                master_pass: None,
                 hash: Some(hashed_password),
-                unlocked_pass: None,
-                state: PhantomData::<Locked>,
+                state: PhantomData::<UnVerified>,
             })
-        }
-    }
-
-    // Takes input master_password from user
-    pub fn prompt() -> Result<impl AsRef<str>, MasterPasswordError> {
-        std::io::stdout().flush().ok(); // Flush the output to ensure prompt is displayed
-
-        let master_password = MasterPassword::password_input()?;
-        if !is_strong_password(&master_password) {
-            colour::red!("Password is not strong enough!\n");
-            return MasterPassword::prompt();
-        }
-
-        Ok(master_password)
-    }
-
-    pub fn password_input() -> Result<impl AsRef<str>, MasterPasswordError> {
-        colour::green!("Enter Master password: ");
-        let master_password =
-            rpassword::read_password().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
-
-        Ok(master_password.to_owned())
-    }
-
-    // Check if master password is correct
-    pub fn verify(master_password: impl AsRef<str>) -> Result<bool, MasterPasswordError> {
-        let hashed_password: String = String::from_utf8(
-            std::fs::read(MASTER_PASS_STORE.to_path_buf())
-                .map_err(MasterPasswordError::UnableToRead)?,
-        )
-        .map_err(|_| {
-            MasterPasswordError::UnableToConvert(String::from("Error in converting utf8 -> String"))
-        })?;
-
-        match bcrypt::verify(master_password.as_ref(), hashed_password.as_str()) {
-            Ok(is_correct) => Ok(is_correct),
-            Err(_) => Err(MasterPasswordError::BcryptError(String::from(
-                "Unable to hash password",
-            ))),
         }
     }
 }
 
 // MasterPassword impl for Locked state
-impl MasterPassword<Locked> {
+impl MasterPassword<UnVerified> {
+    // Takes input master_password from user
+    pub fn prompt(&mut self) -> Result<(), MasterPasswordError> {
+        std::io::stdout().flush().ok(); // Flush the output to ensure prompt is displayed
+
+        // Taking input master password
+        let prompt_master_password = password_input("Enter Master password: ")
+            .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+
+        // Storing prompt password to object
+        self.master_pass = Some(prompt_master_password.as_bytes().to_vec());
+        Ok(())
+    }
+
+    // Check if master password is correct
+    // pub fn verify(&self) -> Result<bool, MasterPasswordError> {
+    //     let prompt =
+    //         std::str::from_utf8(self.master_pass.as_ref().expect("Unable to read console"))
+    //             .map_err(|_| {
+    //                 MasterPasswordError::UnableToConvert("from utf8 to string".to_string())
+    //             })?;
+    //
+    //     let hash = std::str::from_utf8(self.hash.as_ref().expect("Unable to read console"))
+    //         .map_err(|_| MasterPasswordError::UnableToConvert("from utf8 to string".to_string()))?;
+    //
+    //     match bcrypt::verify(prompt, hash) {
+    //         Ok(is_correct) => Ok(is_correct),
+    //         Err(_) => Err(MasterPasswordError::BcryptError(String::from(
+    //             "Unable to hash password",
+    //         ))),
+    //     }
+    // }
+
     // Unlock the master password
-    pub fn unlock(&self) -> Result<MasterPassword<Unlocked>, MasterPasswordError> {
+    pub fn verify(&mut self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
         std::io::stdout().flush().map_err(MasterPasswordError::IO)?; // Flush the output to ensure prompt is displayed
 
-        const MAX_ATTEMPT: u32 = 3;
+        match self
+            .master_pass
+            .into_iter()
+            .any(|pass| password_hash(pass).ok() == self.hash)
+        {
+            true => Ok(MasterPassword {
+                master_pass: self.master_pass,
+                hash: self.hash,
+                state: PhantomData::<Verified>,
+            }),
+            false => Err(MasterPasswordError::WrongMasterPassword),
+        }
 
-        (0..MAX_ATTEMPT)
-            .find_map(|attempt| {
-                let master_pass_prompt = MasterPassword::password_input().ok()?;
-                MasterPassword::verify(&master_pass_prompt)
-                    .ok()
-                    .and_then(|is_verified| {
-                        if is_verified {
-                            Some(MasterPassword {
-                                hash: self.hash.clone(),
-                                unlocked_pass: Some(
-                                    master_pass_prompt.as_ref().as_bytes().to_vec(),
-                                ),
-                                state: PhantomData::<Unlocked>,
-                            })
-                        } else {
-                            (attempt < MAX_ATTEMPT)
-                                .then(|| colour::red!("Wrong password, Please try again\n"));
-                            None
-                        }
-                    })
-            })
-            .ok_or(MasterPasswordError::WrongMasterPassword)
+        // (0..MAX_ATTEMPT)
+        //     .find_map(|attempt| {
+        //         let master_pass_prompt = MasterPassword::password_input().ok()?;
+        //         MasterPassword::verify(&master_pass_prompt)
+        //             .ok()
+        //             .and_then(|is_verified| {
+        //                 if is_verified {
+        //                     Some(MasterPassword {
+        //                         hash: self.hash.clone(),
+        //                         unlocked_pass: Some(
+        //                             master_pass_prompt.as_ref().as_bytes().to_vec(),
+        //                         ),
+        //                         state: PhantomData::<Verified>,
+        //                     })
+        //                 } else {
+        //                     (attempt < MAX_ATTEMPT)
+        //                         .then(|| colour::red!("Wrong password, Please try again\n"));
+        //                     None
+        //                 }
+        //             })
+        //     })
+        //     .ok_or(MasterPasswordError::WrongMasterPassword)
     }
 }
 
-impl MasterPassword<Unlocked> {
-    pub fn lock(&self) -> MasterPassword<Locked> {
+impl MasterPassword<Verified> {
+    pub fn lock(&self) -> MasterPassword<UnVerified> {
         MasterPassword {
-            hash: self.hash.clone(),
-            unlocked_pass: None,
-            state: PhantomData::<Locked>,
+            hash: self.hash,
+            master_pass: None,
+            state: PhantomData::<UnVerified>,
         }
     }
 
@@ -209,8 +267,8 @@ impl MasterPassword<Unlocked> {
             }
 
             let password = password.trim();
-            self.unlocked_pass = Some(password.as_bytes().to_vec());
-            let hash = hash(password)
+            // self.unlocked_pass = Some(password.as_bytes().to_vec());
+            let hash = password_hash(password)
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
             self.hash = Some(hash.clone());
 
@@ -224,15 +282,6 @@ impl MasterPassword<Unlocked> {
             self.change()
         }
     }
-
-    pub fn check(&self) {
-        println!(
-            "{:?}-{:?}-{:?}",
-            self.hash,
-            String::from_utf8(self.unlocked_pass.clone().unwrap()),
-            self.state
-        );
-    }
 }
 
 #[cfg(test)]
@@ -243,6 +292,6 @@ mod test {
     #[ignore = "unimplemented"]
     fn check_init() {
         let master = MasterPassword::new();
-        let _unlocked = master.unwrap().unlock();
+        // let _unlocked = master.unwrap().verify();
     }
 }

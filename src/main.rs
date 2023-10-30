@@ -4,20 +4,10 @@ pub mod cli;
 pub mod pass;
 
 use cli::run_cli;
+use pass::master::MasterPassword;
 
 fn main() -> anyhow::Result<()> {
-    run_cli().expect("Unable to run cli");
+    let mut master_pass = MasterPassword::new();
+    run_cli(&mut master_pass).expect("Unable to run cli");
     Ok(())
 }
-
-// For custom name of project -> cargo install --path . && pass
-
-// TO Check:
-// - Module
-// - Unwrap/Error handle
-
-// To ASK:
-// - Storing SALT
-// - entry.rs 24 line no. exposing info to pub
-
-// TODO: Add useful test for every files
