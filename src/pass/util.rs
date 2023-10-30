@@ -1,5 +1,6 @@
 use std::num::NonZeroU32;
 
+use clipboard::{ClipboardContext, ClipboardProvider};
 use once_cell::sync::Lazy;
 use ring::{
     pbkdf2,
@@ -98,6 +99,17 @@ pub fn generate_random_password(length: u8) -> impl AsRef<str> {
         .collect();
 
     password
+}
+
+// Set content to clipboard
+pub fn copy_to_clipboard(password: String) -> anyhow::Result<()> {
+    let mut ctx =
+        ClipboardContext::new().map_err(|_| anyhow::anyhow!("Unable to initialize clipboard"))?;
+    ctx.set_contents(password)
+        .map_err(|_| anyhow::anyhow!("Unable to set clipboard contents"))?;
+    ctx.get_contents()
+        .map_err(|_| anyhow::anyhow!("Unable to get clipboard contents"))?;
+    Ok(())
 }
 
 // To check any pass initialised
