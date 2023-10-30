@@ -107,6 +107,8 @@ pub fn copy_to_clipboard(password: String) -> anyhow::Result<()> {
         ClipboardContext::new().map_err(|_| anyhow::anyhow!("Unable to initialize clipboard"))?;
     ctx.set_contents(password)
         .map_err(|_| anyhow::anyhow!("Unable to set clipboard contents"))?;
+
+    // Get method is neccessary for some OS. (Refer to this issue: https://github.com/aweinstock314/rust-clipboard/issues/86)
     ctx.get_contents()
         .map_err(|_| anyhow::anyhow!("Unable to get clipboard contents"))?;
     Ok(())
