@@ -6,7 +6,7 @@ use clap::Parser;
 use crate::{
     cli::args::{Cli, Commands},
     pass::{
-        master::MasterPassword,
+        master::{MasterPassword, UnInit},
         util::{self, is_pass_initialised},
     },
 };
@@ -24,7 +24,7 @@ pub enum CliError {
 }
 
 // Run the CLI
-pub fn run_cli(&mut master_password: MasterPassword) -> anyhow::Result<()> {
+pub fn run_cli(mut master_password: MasterPassword) -> anyhow::Result<()> {
     // Parsing the command line arguments into Cli struct
     let args = Cli::parse();
 
@@ -35,7 +35,7 @@ pub fn run_cli(&mut master_password: MasterPassword) -> anyhow::Result<()> {
                     colour::green!("Pass already initialised!!\n");
                 }
                 false => {
-                    MasterPassword::new();
+                    master_password.init()?;
                 }
             };
         }
