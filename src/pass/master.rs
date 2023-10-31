@@ -44,7 +44,7 @@ pub enum MasterPasswordError {
     PassNotStrong,
 }
 
-/// Initial state of [MasterPassword]
+/// Default state of [MasterPassword]
 pub struct UnInit;
 
 /// Initial state of [MasterPassword]
@@ -71,7 +71,7 @@ impl Default for MasterPassword<Init> {
         Self {
             master_pass: Default::default(),
             hash: Default::default(),
-            state: Default::default(),
+            state: PhantomData,
         }
     }
 }
@@ -83,7 +83,9 @@ impl MasterPassword<UnInit> {
 }
 
 impl MasterPassword<Init> {
-    pub fn init(&mut self) -> Result<MasterPassword<UnVerified>, MasterPasswordError> {
+    // Convert initialised state to unverified state
+    pub fn init(self) -> Result<MasterPassword<UnVerified>, MasterPasswordError> {
+        // If master password file exists, then read hashed password and set to object
         if MASTER_PASS_STORE.exists() {
             let hashed_password = std::fs::read(MASTER_PASS_STORE.to_path_buf())
                 .map_err(MasterPasswordError::UnableToRead)?;
@@ -94,7 +96,7 @@ impl MasterPassword<Init> {
                 state: PhantomData::<UnVerified>,
             })
         }
-        // id master password doesn't exist in db, generate a new one
+        // If master password doesn't exist in db, generate a new one
         else {
             std::fs::create_dir_all(PASS_DIR_PATH.to_owned())
                 .map_err(MasterPasswordError::UnableToCreateDirs)?;
@@ -107,6 +109,14 @@ impl MasterPassword<Init> {
             if !is_strong_password(&master_pass_input) {
                 colour::red!("Password is not strong enough!\n");
                 return Err(MasterPasswordError::PassNotStrong)?;
+            }
+
+            let confirm_pass = password_input("Confirm master pass:")
+                .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+
+            if master_pass_input != confirm_pass {
+                colour::e_red_ln!("Password doesn't match");
+                return Err(MasterPasswordError::MasterPassConfirm);
             }
 
             // If we want to give 3 tries for password confirmation
@@ -132,14 +142,6 @@ impl MasterPassword<Init> {
             //     })
             //     .any(|password_match| password_match);
 
-            let confirm_pass = password_input("Confirm master pass:")
-                .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
-
-            if master_pass_input != confirm_pass {
-                colour::e_red_ln!("Password doesn't match");
-                return Err(MasterPasswordError::MasterPassConfirm);
-            }
-
             // Hashing prompted master password
             let hashed_password = password_hash(&master_pass_input)
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
@@ -159,7 +161,7 @@ impl MasterPassword<Init> {
     }
 }
 
-// MasterPassword impl for Locked state
+// MasterPassword methods for Locked or UnVerified state
 impl MasterPassword<UnVerified> {
     // Takes input master_password from user
     pub fn prompt(&mut self) -> Result<(), MasterPasswordError> {
@@ -194,7 +196,7 @@ impl MasterPassword<UnVerified> {
     // }
 
     // Unlock the master password
-    pub fn verify(&mut self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
+    pub fn verify(self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
         std::io::stdout().flush().map_err(MasterPasswordError::IO)?; // Flush the output to ensure prompt is displayed
 
         match self
@@ -236,7 +238,7 @@ impl MasterPassword<UnVerified> {
 }
 
 impl MasterPassword<Verified> {
-    pub fn lock(&self) -> MasterPassword<UnVerified> {
+    pub fn lock(self) -> MasterPassword<UnVerified> {
         MasterPassword {
             hash: self.hash,
             master_pass: None,
@@ -244,16 +246,13 @@ impl MasterPassword<Verified> {
         }
     }
 
+
+    // Todio
     // To change master password
     pub fn change(&mut self) -> Result<(), MasterPasswordError> {
-        colour::green!("Enter new master password: ");
-        let password =
-            rpassword::read_password().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
-
-        if is_strong_password(&password) {
+        if is_strong_password(self.password.) {
             for attempt in 0..3 {
-                colour::green!("Confirm master password: ");
-                let confirm_master_password = rpassword::read_password()
+                let confirm_master_password = password_input("Confirm master password: ")
                     .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
                 if password.as_ref() == confirm_master_password {
