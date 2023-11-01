@@ -11,6 +11,7 @@ use crate::pass::{
     entry::PasswordEntry,
     util::{derive_encryption_key, XDG_BASE},
 };
+use crate::pass::master::{MasterPassword, Verified};
 
 pub static PASS_ENTRY_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
     XDG_BASE
@@ -58,8 +59,9 @@ impl PasswordStore {
     // Extract the data from database & store in PasswordStore
     pub fn new(
         file_path: impl AsRef<Path>,
-        master_password: impl AsRef<[u8]>,
+        master_password: MasterPassword<Verified>,
     ) -> Result<Self, PasswordStoreError> {
+
         // If no PasswordEntry is stored yet then create file to store it
         if !file_path.as_ref().exists() {
             std::fs::File::create(file_path.as_ref())

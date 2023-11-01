@@ -3,12 +3,10 @@ pub mod args;
 
 use clap::Parser;
 
+use crate::pass::master::Init;
 use crate::{
     cli::args::{Cli, Commands},
-    pass::{
-        master::{MasterPassword, UnInit},
-        util::{self, is_pass_initialised},
-    },
+    pass::{master::MasterPassword, util::is_pass_initialised},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -21,10 +19,13 @@ pub enum CliError {
 
     #[error("Failed to Change Master password")]
     UnableToChangeMaster,
+
+    #[error("Unable to read from console")]
+    UnableToReadFromConsole,
 }
 
 // Run the CLI
-pub fn run_cli(mut master_password: MasterPassword) -> anyhow::Result<()> {
+pub fn run_cli(mut master_password: MasterPassword<Init>) -> anyhow::Result<()> {
     // Parsing the command line arguments into Cli struct
     let args = Cli::parse();
 
@@ -41,33 +42,39 @@ pub fn run_cli(mut master_password: MasterPassword) -> anyhow::Result<()> {
         }
 
         Some(Commands::ChangeMaster) => {
-            let master = master_password;
+            // Initialises master password
+            let mut master = master_password.init()?;
 
+            // Prompt and set master password
+            &master.prompt()?;
+
+            // Change state to verified
             let mut unlocked = master.verify()?;
 
+            // Change the master-pass and store it in db
             unlocked.change()?;
 
+            // Again lock the master-pass
             unlocked.lock();
         }
 
         Some(Commands::Add(args)) => {
+            let mut master = master_password.init()?;
+
             for attempt in 0..3 {
-                let master_password = util::password_input("Enter Master password: ")
-                    .expect("Unable to read input from IO console");
-                match MasterPassword::verify(&master_password) {
-                    Ok(true) => {
-                        args.add_entries(master_password.as_ref())?;
+                &master.prompt()?;
+
+                match master.verify() {
+                    Ok(verified) => {
+                        args.add_entries(verified)?;
                         break;
                     }
-                    Ok(false) => {
+                    Err(_) => {
                         if attempt < 2 {
                             colour::red_ln!("Incorrect master password, retry ({}):", 2 - attempt);
                         } else {
                             colour::red_ln!("Wrong master password");
                         }
-                    }
-                    Err(_) => {
-                        colour::e_red_ln!("Failed to add password");
                     }
                 };
             }
