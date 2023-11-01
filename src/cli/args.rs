@@ -5,6 +5,7 @@ use crate::pass::{
     store::{PasswordStore, PasswordStoreError, PASS_ENTRY_STORE},
     util::copy_to_clipboard,
 };
+use crate::pass::master::{MasterPassword, Verified};
 
 // CLI Design
 #[derive(Parser)]
@@ -81,14 +82,14 @@ impl From<&AddArgs> for PasswordEntry {
 }
 
 impl AddArgs {
-    pub fn add_entries(&self, master_password: impl AsRef<[u8]>) -> Result<(), PasswordStoreError> {
+    pub fn add_entries(&self, master_password: MasterPassword<Verified>) -> Result<(), PasswordStoreError> {
         let mut manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), &master_password)?;
 
         // Push the new entries
         manager.push_entry(self.into());
 
         // New entries are pushed to database
-        manager.dump(PASS_ENTRY_STORE.to_path_buf(), &master_password)?;
+        manager.dump(PASS_ENTRY_STORE.to_path_buf())?;
 
         Ok(())
     }

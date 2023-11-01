@@ -1,4 +1,4 @@
-use std::{io::Write, marker::PhantomData, os::unix::prelude::OsStrExt};
+use std::{io::Write, marker::PhantomData};
 
 use once_cell::sync::Lazy;
 
@@ -53,17 +53,17 @@ pub struct Init;
 /// Unverified state of [MasterPassword]
 pub struct UnVerified;
 
-/// Verfied state of [MasterPassword]
+/// Verified state of [MasterPassword]
 pub struct Verified;
 
 #[derive(Debug, Default)]
 pub struct MasterPassword<State = UnInit> {
     /// Master password
-    master_pass: Option<Vec<u8>>,
+    pub master_pass: Option<Vec<u8>>,
     /// Master password hashed
-    hash: Option<Vec<u8>>,
+    pub hash: Option<Vec<u8>>,
     /// [MasterPassword] state
-    state: PhantomData<State>,
+    pub state: PhantomData<State>,
 }
 
 impl Default for MasterPassword<Init> {
@@ -246,16 +246,17 @@ impl MasterPassword<Verified> {
         }
     }
 
-
-    // Todio
+    // Todo: Encrypt all contents with new pass bcs of changed master-pass
     // To change master password
     pub fn change(&mut self) -> Result<(), MasterPasswordError> {
-        if is_strong_password(self.password.) {
+        let prompt_new_master = password_input("Enter Master password: ")
+            .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+        if is_strong_password(prompt_new_master) {
             for attempt in 0..3 {
                 let confirm_master_password = password_input("Confirm master password: ")
                     .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
-                if password.as_ref() == confirm_master_password {
+                if prompt_new_master.as_ref() == confirm_master_password {
                     break;
                 }
                 if attempt == 2 {
@@ -265,9 +266,7 @@ impl MasterPassword<Verified> {
                 colour::e_red_ln!("Confirm password does not match, retry({})", 2 - attempt);
             }
 
-            let password = password.trim();
-            // self.unlocked_pass = Some(password.as_bytes().to_vec());
-            let hash = password_hash(password)
+            let hash = password_hash(prompt_new_master.trim())
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
             self.hash = Some(hash.clone());
 
@@ -277,7 +276,7 @@ impl MasterPassword<Verified> {
 
             Ok(())
         } else {
-            colour::red!("Password is not strong enough!\n");
+            colour::e_red_ln!("Password is not strong enough!");
             self.change()
         }
     }
