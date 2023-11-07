@@ -1,6 +1,8 @@
-use std::{io::Write, marker::PhantomData};
+use std::{io::Write, marker::PhantomData, num::NonZeroU32};
 
 use once_cell::sync::Lazy;
+use ring::pbkdf2;
+use serde::{Deserialize, Serialize};
 
 use super::util::{is_strong_password, password_input};
 use crate::pass::util::{password_hash, PASS_DIR_PATH, XDG_BASE};
@@ -54,9 +56,10 @@ pub struct Init;
 pub struct UnVerified;
 
 /// Verified state of [MasterPassword]
+#[derive(Debug)]
 pub struct Verified;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MasterPassword<State = UnInit> {
     /// Master password
     pub master_pass: Option<Vec<u8>>,
@@ -83,7 +86,7 @@ impl MasterPassword<UnInit> {
 }
 
 impl MasterPassword<Init> {
-    // Convert initialised state to unverified state
+    /// Convert initialised state to unverified state
     pub fn init(self) -> Result<MasterPassword<UnVerified>, MasterPasswordError> {
         // If master password file exists, then read hashed password and set to object
         if MASTER_PASS_STORE.exists() {
@@ -161,9 +164,8 @@ impl MasterPassword<Init> {
     }
 }
 
-// MasterPassword methods for Locked or UnVerified state
 impl MasterPassword<UnVerified> {
-    // Takes input master_password from user
+    /// Takes input master_password from user
     pub fn prompt(&mut self) -> Result<(), MasterPasswordError> {
         std::io::stdout().flush().ok(); // Flush the output to ensure prompt is displayed
 
@@ -246,7 +248,8 @@ impl MasterPassword<Verified> {
         }
     }
 
-    // Todo: Encrypt all contents with new pass bcs of changed master-pass
+    // TODO: Encrypt all contents with new pass bcs of changed master-pass
+
     // To change master password
     pub fn change(&mut self) -> Result<(), MasterPasswordError> {
         let prompt_new_master = password_input("Enter Master password: ")
@@ -279,6 +282,22 @@ impl MasterPassword<Verified> {
             colour::e_red_ln!("Password is not strong enough!");
             self.change()
         }
+    }
+
+    // Derive a encryption key from master password & salt
+    pub fn derive_encryption_key(&self, salt: impl AsRef<[u8]>) -> [u8; 32] {
+        let mut encryption_key = [0_u8; 32];
+
+        // TODO: Derive key by PBKDF2 & remove ring
+        pbkdf2::derive(
+            pbkdf2::PBKDF2_HMAC_SHA256,
+            NonZeroU32::new(600_000).unwrap(),
+            salt.as_ref(),
+            self.master_pass.unwrap().as_ref(),
+            &mut encryption_key,
+        );
+
+        encryption_key
     }
 }
 
