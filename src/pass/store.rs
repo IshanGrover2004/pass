@@ -7,11 +7,8 @@ use serde_encrypt::{
     EncryptedMessage,
 };
 
-use crate::pass::{
-    entry::PasswordEntry,
-    util::{derive_encryption_key, XDG_BASE},
-};
 use crate::pass::master::{MasterPassword, Verified};
+use crate::pass::{entry::PasswordEntry, util::XDG_BASE};
 
 pub static PASS_ENTRY_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
     XDG_BASE
@@ -49,6 +46,7 @@ pub enum PasswordStoreError {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PasswordStore {
     passwords: Vec<PasswordEntry>,
+    master_password: MasterPassword<Verified>,
 }
 
 impl SerdeEncryptSharedKey for PasswordStore {
@@ -56,34 +54,40 @@ impl SerdeEncryptSharedKey for PasswordStore {
 }
 
 impl PasswordStore {
-    // Extract the data from database & store in PasswordStore
+    /// Extract the data from database(if exist) & store in PasswordStore
     pub fn new(
         file_path: impl AsRef<Path>,
         master_password: MasterPassword<Verified>,
     ) -> Result<Self, PasswordStoreError> {
+        match file_path.as_ref().exists() {
+            // Load all existing password entry from db
+            true => PasswordStore::load(file_path.as_ref(), master_password),
 
-        // If no PasswordEntry is stored yet then create file to store it
-        if !file_path.as_ref().exists() {
-            std::fs::File::create(file_path.as_ref())
-                .map_err(PasswordStoreError::UnableToCreateDirs)?;
+            // No password entry is stored yet, then create file to store it
+            false => {
+                std::fs::File::create(file_path.as_ref())
+                    .map_err(PasswordStoreError::UnableToCreateDirs)?;
 
-            // Returning an empty Vec bcs of no Entry available
-            return Ok(PasswordStore {
-                passwords: Vec::new(),
-            });
+                // Returning an empty Vec bcs of no Entry available
+                Ok(PasswordStore {
+                    passwords: Vec::new(),
+                    master_password,
+                })
+            }
         }
-
-        PasswordStore::load(file_path.as_ref(), master_password)
     }
 
     /// Encrypt the Password entries
-    pub fn encrypt_entry(
-        &self,
-        master_pass: impl AsRef<[u8]>,
-    ) -> Result<impl AsRef<[u8]>, serde_encrypt::Error> {
-        let key = derive_encryption_key(master_pass, "Salt".as_bytes());
+    pub fn encrypt_entry(&self) -> Result<impl AsRef<[u8]>, serde_encrypt::Error> {
+        // TODO: A method for SALT generation storage in db.
+
+        // Derive encryption key from master password
+        let key = self
+            .master_password
+            .derive_encryption_key("Salt".as_bytes());
         let key = SharedKey::new(key);
 
+        // Encrypt contents and serialize it
         let encrypted_content = self.encrypt(&key)?;
         Ok(encrypted_content.serialize())
     }
@@ -93,7 +97,9 @@ impl PasswordStore {
         content: impl AsRef<[u8]>,
         master_pass: impl AsRef<[u8]>,
     ) -> Result<Self, serde_encrypt::Error> {
-        let key = derive_encryption_key(master_pass, "Salt".as_bytes());
+        let key = self
+            .master_password
+            .derive_encryption_key("Salt".as_bytes());
         let key = SharedKey::new(key);
 
         let encrypted_content = EncryptedMessage::deserialize(content.as_ref().to_vec())?;
@@ -101,7 +107,7 @@ impl PasswordStore {
         Ok(decrypted_content)
     }
 
-    // Add entries to the existing entries
+    /// Add entries to the existing entries
     pub fn push_entry(&mut self, entry: PasswordEntry) {
         let is_dupe = self.passwords.iter().any(|current_entry| {
             current_entry.service == entry.service && current_entry.username == entry.username
@@ -109,39 +115,40 @@ impl PasswordStore {
 
         if !is_dupe {
             self.passwords.push(entry);
-            println!("Successfully added entry");
+            colour::green_ln!("Successfully added entry");
         } else {
-            colour::red_ln!("Password entry of same service & username found");
+            colour::e_red_ln!("Password entry of same service or username found");
         }
     }
 
-    // Encrypt the entries & dump it to database
-    pub fn dump(
-        &self,
-        file_path: impl AsRef<Path>,
-        master_pass: impl AsRef<[u8]>,
-    ) -> Result<(), PasswordStoreError> {
-        let encrypted_data = self.encrypt_entry(master_pass).map_err(|_| {
+    /// Encrypt the entries & dump it to db
+    pub fn dump(&self, file_path: impl AsRef<Path>) -> Result<(), PasswordStoreError> {
+        // Encrypting all password entries
+        let encrypted_data = self.encrypt_entry().map_err(|_| {
             PasswordStoreError::UnableToEncryptError("Failed to encrypt entry".to_owned())
         })?;
 
+        // Dump it to the db
         std::fs::write(file_path, encrypted_data).map_err(PasswordStoreError::UnableToWriteFile)?;
 
         Ok(())
     }
 
-    // Read entries from database & decrypt it
+    /// Read entries from database & decrypt it
     pub fn load(
         file_path: impl AsRef<Path>,
-        master_pass: impl AsRef<[u8]>,
+        master_password: MasterPassword<Verified>,
     ) -> Result<Self, PasswordStoreError> {
         let encrypted_data = std::fs::read(file_path).map_err(PasswordStoreError::UnableToRead)?;
 
         if encrypted_data.is_empty() {
-            return Ok(PasswordStore { passwords: vec![] });
+            return Ok(PasswordStore {
+                passwords: vec![],
+                master_password,
+            });
         }
 
-        PasswordStore::decrypt_entry(encrypted_data, master_pass).map_err(|_| {
+        PasswordStore::decrypt_entry(encrypted_data, master_password).map_err(|_| {
             PasswordStoreError::UnableToDecryptError("Failed to decrypt entries".to_owned())
         })
     }
@@ -168,7 +175,11 @@ mod test {
 
     #[test]
     fn test_storage() -> Result<(), PasswordStoreError> {
-        let test_master_pass = "TestPassword123@";
+        let test_master_pass = MasterPassword {
+            master_pass: Some("Test123@".as_bytes().to_vec()),
+            hash: None,
+            state: std::marker::PhantomData,
+        };
 
         // Making a new Password manager
         let mut manager = PasswordStore::new(TESTING_PASS.to_path_buf(), test_master_pass)?;

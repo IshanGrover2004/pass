@@ -1,11 +1,11 @@
 use clap::{Args, Parser, Subcommand};
 
+use crate::pass::master::{MasterPassword, Verified};
 use crate::pass::{
     entry::PasswordEntry,
     store::{PasswordStore, PasswordStoreError, PASS_ENTRY_STORE},
     util::copy_to_clipboard,
 };
-use crate::pass::master::{MasterPassword, Verified};
 
 // CLI Design
 #[derive(Parser)]
@@ -82,8 +82,11 @@ impl From<&AddArgs> for PasswordEntry {
 }
 
 impl AddArgs {
-    pub fn add_entries(&self, master_password: MasterPassword<Verified>) -> Result<(), PasswordStoreError> {
-        let mut manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), &master_password)?;
+    pub fn add_entries(
+        &self,
+        master_password: MasterPassword<Verified>,
+    ) -> Result<(), PasswordStoreError> {
+        let mut manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
 
         // Push the new entries
         manager.push_entry(self.into());

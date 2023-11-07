@@ -33,7 +33,7 @@ pub fn run_cli(mut master_password: MasterPassword<Init>) -> anyhow::Result<()> 
         Some(Commands::Init(_)) => {
             match is_pass_initialised() {
                 true => {
-                    colour::green!("Pass already initialised!!\n");
+                    colour::green_ln!("Pass already initialised!!\n");
                 }
                 false => {
                     master_password.init()?;
