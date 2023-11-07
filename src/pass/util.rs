@@ -27,26 +27,6 @@ pub enum UtilError {
     UnableToReadFromConsole,
 }
 
-// Derive a encryption key from master password & salt
-pub fn derive_encryption_key<T, R>(master_pass: T, salt: R) -> [u8; 32]
-where
-    T: AsRef<[u8]>,
-    R: AsRef<[u8]>,
-{
-    let mut encryption_key = [0_u8; 32];
-
-    // TODO: Derive key by PBKDF2 & remove ring
-    pbkdf2::derive(
-        pbkdf2::PBKDF2_HMAC_SHA256,
-        NonZeroU32::new(600_000).unwrap(),
-        salt.as_ref(),
-        master_pass.as_ref(),
-        &mut encryption_key,
-    );
-
-    encryption_key
-}
-
 // Genrerate a random salt using Rng
 pub fn get_random_salt() -> [u8; 16] {
     let mut salt = [0u8; 16];
