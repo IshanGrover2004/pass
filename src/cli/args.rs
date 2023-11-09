@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use clap::{Args, Parser, Subcommand};
 
 use crate::pass::master::{MasterPassword, Verified};
@@ -84,15 +86,18 @@ impl From<&AddArgs> for PasswordEntry {
 impl AddArgs {
     pub fn add_entries(
         &self,
-        master_password: MasterPassword<Verified>,
+        master_password: &MasterPassword<Verified>,
     ) -> Result<(), PasswordStoreError> {
-        let mut manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
+        let mut manager =
+            PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password.to_owned())?;
 
         // Push the new entries
         manager.push_entry(self.into());
 
         // New entries are pushed to database
         manager.dump(PASS_ENTRY_STORE.to_path_buf())?;
+
+        // TODO: Impl Drop trait to automatically dump all password entries in DB
 
         Ok(())
     }
@@ -114,6 +119,15 @@ pub struct UpdateArgs {
 
 #[derive(Args)]
 pub struct ListArgs {}
+
+pub fn list_entries(master_password: MasterPassword<Verified>) -> anyhow::Result<()> {
+    // TODO: Make a table to list passwords
+    let manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
+
+    dbg!(manager);
+
+    Ok(())
+}
 
 #[derive(Args)]
 pub struct GetArgs {
