@@ -95,11 +95,9 @@ impl PasswordStore {
     // Decrypt the entry
     pub fn decrypt_entry(
         content: impl AsRef<[u8]>,
-        master_pass: impl AsRef<[u8]>,
+        master_password: MasterPassword<Verified>,
     ) -> Result<Self, serde_encrypt::Error> {
-        let key = self
-            .master_password
-            .derive_encryption_key("Salt".as_bytes());
+        let key = master_password.derive_encryption_key("Salt".as_bytes());
         let key = SharedKey::new(key);
 
         let encrypted_content = EncryptedMessage::deserialize(content.as_ref().to_vec())?;
@@ -182,7 +180,7 @@ mod test {
         };
 
         // Making a new Password manager
-        let mut manager = PasswordStore::new(TESTING_PASS.to_path_buf(), test_master_pass)?;
+        let mut manager = PasswordStore::new(TESTING_PASS.to_path_buf(), test_master_pass.clone())?;
 
         let entries = vec![
             PasswordEntry::new(
@@ -205,7 +203,7 @@ mod test {
             .for_each(|entry| manager.push_entry(entry));
 
         // Writing these entries to database
-        manager.dump(TESTING_PASS.to_path_buf(), test_master_pass)?;
+        manager.dump(TESTING_PASS.to_path_buf())?;
 
         // Loading contents from database
         let decrypted_manager = PasswordStore::load(TESTING_PASS.to_path_buf(), test_master_pass)?;

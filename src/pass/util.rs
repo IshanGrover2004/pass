@@ -104,5 +104,8 @@ pub fn is_pass_initialised() -> bool {
 
 pub fn password_input(message: impl AsRef<str>) -> Result<String, UtilError> {
     colour::green!("{}", message.as_ref());
-    rpassword::read_password().map_err(|_| UtilError::UnableToReadFromConsole)
+    Ok(rpassword::read_password()
+        .map_err(|_| UtilError::UnableToReadFromConsole)?
+        .trim()
+        .to_string())
 }
