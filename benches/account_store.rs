@@ -55,17 +55,6 @@ impl Account {
     }
 }
 
-#[cfg(test)]
-mod test {
-
-    #[test]
-    fn check_rng() {
-        let pass = Account::new_rand();
-
-        println!("{:?}", pass);
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 struct AccColl {
     accounts: HashMap<String, Account>,

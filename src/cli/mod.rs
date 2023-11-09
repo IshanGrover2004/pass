@@ -49,7 +49,7 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             let mut master = master_password.init()?;
 
             // Prompt and set master password
-            &master.prompt()?;
+            master.prompt()?;
 
             // Change state to verified
             let mut unlocked = master.verify()?;
