@@ -1,11 +1,6 @@
-use std::num::NonZeroU32;
-
 use clipboard::{ClipboardContext, ClipboardProvider};
 use once_cell::sync::Lazy;
-use ring::{
-    pbkdf2,
-    rand::{SecureRandom, SystemRandom},
-};
+use ring::rand::{SecureRandom, SystemRandom};
 
 use super::master::MASTER_PASS_STORE;
 

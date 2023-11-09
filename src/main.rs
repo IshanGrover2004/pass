@@ -7,7 +7,7 @@ use cli::run_cli;
 use pass::master::MasterPassword;
 
 fn main() -> anyhow::Result<()> {
-    let mut master_pass = MasterPassword::new();
+    let master_pass = MasterPassword::new();
     run_cli(master_pass).expect("Unable to run cli");
     Ok(())
 }

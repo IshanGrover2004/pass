@@ -312,7 +312,7 @@ mod test {
     #[test]
     #[ignore = "unimplemented"]
     fn check_init() {
-        let master = MasterPassword::new();
+        let _master = MasterPassword::new();
         // let _unlocked = master.unwrap().verify();
     }
 }
