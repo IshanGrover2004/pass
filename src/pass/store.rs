@@ -30,6 +30,9 @@ pub enum PasswordStoreError {
     #[error("Unable to create dirs for password storage")]
     UnableToCreateDirs(std::io::Error),
 
+    #[error("Unable to create file for password storage")]
+    UnableToCreateFile(std::io::Error),
+
     #[error("Unable to write into master password store file: {0}")]
     UnableToWriteFile(std::io::Error),
 
@@ -66,7 +69,7 @@ impl PasswordStore {
             // No password entry is stored yet, then create file to store it
             false => {
                 std::fs::File::create(file_path.as_ref())
-                    .map_err(PasswordStoreError::UnableToCreateDirs)?;
+                    .map_err(PasswordStoreError::UnableToCreateFile)?;
 
                 // Returning an empty Vec bcs of no Entry available
                 Ok(PasswordStore {

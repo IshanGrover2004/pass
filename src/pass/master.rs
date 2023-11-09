@@ -106,50 +106,32 @@ impl MasterPassword<Init> {
             std::fs::create_dir_all(PASS_DIR_PATH.to_owned())
                 .map_err(MasterPasswordError::UnableToCreateDirs)?;
 
-            // Ask user master password
-            let master_pass_input: String = password_input("Enter master password:")
-                .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+            let mut master_pass_input: String;
 
-            // Checking if master password is strong
-            if !is_strong_password(&master_pass_input) {
-                colour::red!("Password is not strong enough!\n");
-                return Err(MasterPasswordError::PassNotStrong)?;
+            loop {
+                // Ask user master password
+                master_pass_input = password_input("Enter master password:")
+                    .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+
+                if !is_strong_password(&master_pass_input) {
+                    colour::e_red_ln!("Password is not strong enough!");
+                    continue;
+                }
+
+                let confirm_pass = password_input("Confirm master pass:")
+                    .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+
+                if master_pass_input != confirm_pass {
+                    colour::e_red_ln!("Password doesn't match");
+                    return Err(MasterPasswordError::MasterPassConfirm);
+                }
+
+                break;
             }
-
-            let confirm_pass = password_input("Confirm master pass:")
-                .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
-
-            if master_pass_input != confirm_pass {
-                colour::e_red_ln!("Password doesn't match");
-                return Err(MasterPasswordError::MasterPassConfirm);
-            }
-
-            // If we want to give 3 tries for password confirmation
-            // let max_attempts = 3;
-            // let is_password_matched = (0..max_attempts)
-            //     .map(|attempt| {
-            //         password_input("Confirm master password")
-            //             .and_then(|confirm_password| {
-            //                 if master_pass_input.as_ref() == &confirm_password {
-            //                     Ok(true)
-            //                 } else if attempt == max_attempts - 1 {
-            //                     colour::e_red_ln!("Password doesn't match");
-            // MasterPasswordErrors::exit(1);
-            //                 } else {
-            //                     colour::e_red_ln!(
-            //                         "Confirm password does not match, retry({})",
-            //                         max_attempts - 1 - attempt
-            //                     );
-            //                     Ok(false)
-            //                 }
-            //             })
-            //             .unwrap_or(false)
-            //     })
-            //     .any(|password_match| password_match);
 
             // Hashing prompted master password
             let hashed_password = password_hash(&master_pass_input)
-                .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
+                .map_err(|_| MasterPasswordError::BcryptError("Unable to hash".to_string()))?;
 
             // Store hashed master password
             std::fs::write(MASTER_PASS_STORE.to_path_buf(), &hashed_password)
@@ -180,25 +162,6 @@ impl MasterPassword<UnVerified> {
         Ok(())
     }
 
-    // Check if master password is correct
-    // pub fn verify(&self) -> Result<bool, MasterPasswordError> {
-    //     let prompt =
-    //         std::str::from_utf8(self.master_pass.as_ref().expect("Unable to read console"))
-    //             .map_err(|_| {
-    //                 MasterPasswordError::UnableToConvert("from utf8 to string".to_string())
-    //             })?;
-    //
-    //     let hash = std::str::from_utf8(self.hash.as_ref().expect("Unable to read console"))
-    //         .map_err(|_| MasterPasswordError::UnableToConvert("from utf8 to string".to_string()))?;
-    //
-    //     match bcrypt::verify(prompt, hash) {
-    //         Ok(is_correct) => Ok(is_correct),
-    //         Err(_) => Err(MasterPasswordError::BcryptError(String::from(
-    //             "Unable to hash password",
-    //         ))),
-    //     }
-    // }
-
     // Unlock the master password
     pub fn verify(&self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
         std::io::stdout().flush().map_err(MasterPasswordError::IO)?; // Flush the output to ensure prompt is displayed
@@ -216,30 +179,6 @@ impl MasterPassword<UnVerified> {
             Ok(false) => Err(MasterPasswordError::WrongMasterPassword),
             Err(e) => Err(MasterPasswordError::BcryptError(e.to_string())),
         }
-
-        // const MAX_ATTEMPT: usize = 3;
-        // (0..MAX_ATTEMPT)
-        //     .find_map(|attempt| {
-        //         let master_pass_prompt = MasterPassword::password_input().ok()?;
-        //         MasterPassword::verify(&master_pass_prompt)
-        //             .ok()
-        //             .and_then(|is_verified| {
-        //                 if is_verified {
-        //                     Some(MasterPassword {
-        //                         hash: self.hash.clone(),
-        //                         unlocked_pass: Some(
-        //                             master_pass_prompt.as_ref().as_bytes().to_vec(),
-        //                         ),
-        //                         state: PhantomData::<Verified>,
-        //                     })
-        //                 } else {
-        //                     (attempt < MAX_ATTEMPT)
-        //                         .then(|| colour::red!("Wrong password, Please try again\n"));
-        //                     None
-        //                 }
-        //             })
-        //     })
-        //     .ok_or(MasterPasswordError::WrongMasterPassword)
     }
 }
 
