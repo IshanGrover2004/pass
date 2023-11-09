@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use clap::{Args, Parser, Subcommand};
 
 use crate::pass::master::{MasterPassword, Verified};
@@ -165,26 +163,25 @@ pub struct GenArgs {
 
 impl GenArgs {
     pub fn generate_password(self) {
-        let password_generator;
-
         // If no flags is given then generate a password including Uppercase, lowercase & digits
-        if self.digits || self.lowercase || self.uppercase || self.symbols {
-            password_generator = passwords::PasswordGenerator::new()
+        let password_generator = if self.digits || self.lowercase || self.uppercase || self.symbols
+        {
+            passwords::PasswordGenerator::new()
                 .length(self.length)
                 .lowercase_letters(self.lowercase)
                 .uppercase_letters(self.uppercase)
                 .numbers(self.digits)
                 .symbols(self.symbols)
-                .strict(true);
+                .strict(true)
         } else {
-            password_generator = passwords::PasswordGenerator::new()
+            passwords::PasswordGenerator::new()
                 .length(self.length)
                 .lowercase_letters(true)
                 .uppercase_letters(true)
                 .numbers(true)
                 .symbols(false)
-                .strict(true);
-        }
+                .strict(true)
+        };
 
         if self.count > 1 {
             match password_generator.generate(self.count) {
