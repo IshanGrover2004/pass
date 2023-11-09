@@ -50,16 +50,18 @@ pub enum MasterPasswordError {
 pub struct UnInit;
 
 /// Initial state of [MasterPassword]
+#[derive(Debug, Clone, Copy)]
 pub struct Init;
 
 /// Unverified state of [MasterPassword]
+#[derive(Debug, Clone, Copy)]
 pub struct UnVerified;
 
 /// Verified state of [MasterPassword]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Verified;
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct MasterPassword<State = UnInit> {
     /// Master password
     pub master_pass: Option<Vec<u8>>,
@@ -198,22 +200,24 @@ impl MasterPassword<UnVerified> {
     // }
 
     // Unlock the master password
-    pub fn verify(self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
+    pub fn verify(&self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
         std::io::stdout().flush().map_err(MasterPasswordError::IO)?; // Flush the output to ensure prompt is displayed
 
-        match self
-            .master_pass
-            .into_iter()
-            .any(|pass| password_hash(pass).ok() == self.hash)
-        {
-            true => Ok(MasterPassword {
-                master_pass: self.master_pass,
-                hash: self.hash,
+        // TODO: Improve code
+        let password = self.master_pass.clone().unwrap();
+        let hash = String::from_utf8(self.hash.clone().unwrap()).unwrap();
+
+        match bcrypt::verify(password, &hash) {
+            Ok(true) => Ok(MasterPassword {
+                master_pass: self.master_pass.clone(),
+                hash: self.hash.clone(),
                 state: PhantomData::<Verified>,
             }),
-            false => Err(MasterPasswordError::WrongMasterPassword),
+            Ok(false) => Err(MasterPasswordError::WrongMasterPassword),
+            Err(e) => Err(MasterPasswordError::BcryptError(e.to_string())),
         }
 
+        // const MAX_ATTEMPT: usize = 3;
         // (0..MAX_ATTEMPT)
         //     .find_map(|attempt| {
         //         let master_pass_prompt = MasterPassword::password_input().ok()?;
@@ -254,7 +258,8 @@ impl MasterPassword<Verified> {
     pub fn change(&mut self) -> Result<(), MasterPasswordError> {
         let prompt_new_master = password_input("Enter Master password: ")
             .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
-        if is_strong_password(prompt_new_master) {
+
+        if is_strong_password(&prompt_new_master) {
             for attempt in 0..3 {
                 let confirm_master_password = password_input("Confirm master password: ")
                     .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
@@ -288,12 +293,11 @@ impl MasterPassword<Verified> {
     pub fn derive_encryption_key(&self, salt: impl AsRef<[u8]>) -> [u8; 32] {
         let mut encryption_key = [0_u8; 32];
 
-        // TODO: Derive key by PBKDF2 & remove ring
         pbkdf2::derive(
             pbkdf2::PBKDF2_HMAC_SHA256,
             NonZeroU32::new(600_000).unwrap(),
             salt.as_ref(),
-            self.master_pass.unwrap().as_ref(),
+            self.master_pass.as_ref().unwrap(),
             &mut encryption_key,
         );
 
