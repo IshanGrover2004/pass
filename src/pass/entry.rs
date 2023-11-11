@@ -70,14 +70,11 @@ impl PasswordEntry {
     pub fn table(&self) -> Vec<cli_table::CellStruct> {
         let service = self.service.clone();
         let username = self.username.clone().unwrap_or("None".to_string());
-        let password =
-            String::from_utf8(self.password.password.clone()).unwrap_or("None".to_string());
         let notes = self.other.clone().unwrap_or("None".to_string());
 
         vec![
             service.cell().justify(Justify::Center),
             username.cell().justify(Justify::Center),
-            password.cell().justify(Justify::Center),
             notes.cell().justify(Justify::Center),
         ]
     }
