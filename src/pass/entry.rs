@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::pass::util::generate_random_password;
+use cli_table::{format::Justify, Cell};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Password {
@@ -60,9 +61,25 @@ impl PasswordEntry {
         }
     }
 
-    // Change password in current entry
+    /// Change password in current entry
     pub fn change_password(&mut self, password: impl AsRef<str>) {
         self.password = Password::new(Some(password.as_ref()));
+    }
+
+    /// Create table for [PasswordEntry]
+    pub fn table(&self) -> Vec<cli_table::CellStruct> {
+        let service = self.service.clone();
+        let username = self.username.clone().unwrap_or("None".to_string());
+        let password =
+            String::from_utf8(self.password.password.clone()).unwrap_or("None".to_string());
+        let notes = self.other.clone().unwrap_or("None".to_string());
+
+        vec![
+            service.cell().justify(Justify::Center),
+            username.cell().justify(Justify::Center),
+            password.cell().justify(Justify::Center),
+            notes.cell().justify(Justify::Center),
+        ]
     }
 }
 
