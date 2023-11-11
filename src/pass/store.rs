@@ -1,6 +1,7 @@
 use std::path::Path;
 
-use cli_table::{Cell, CellStruct, Style, Table, TableDisplay};
+use cli_table::format::Justify;
+use cli_table::{Cell, Style, Table, TableDisplay};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
@@ -180,13 +181,19 @@ impl PasswordStore {
             let table = self
                 .passwords
                 .iter()
-                .map(|p| p.table())
-                .collect::<Vec<Vec<CellStruct>>>()
+                .enumerate()
+                .map(|(index, data)| {
+                    let mut table = data.table();
+                    let serial = (index + 1).to_string().cell().justify(Justify::Center);
+                    table.insert(0, serial);
+                    table
+                })
+                .collect::<Vec<Vec<_>>>()
                 .table()
                 .title(vec![
+                    "Serial no.".cell().bold(true),
                     "Service".cell().bold(true),
                     "Username".cell().bold(true),
-                    "Password".cell().bold(true),
                     "Notes".cell().bold(true),
                 ])
                 .bold(true)
