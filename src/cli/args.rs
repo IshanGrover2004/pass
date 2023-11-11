@@ -119,10 +119,19 @@ pub struct UpdateArgs {
 pub struct ListArgs {}
 
 pub fn list_entries(master_password: MasterPassword<Verified>) -> anyhow::Result<()> {
-    // TODO: Make a table to list passwords
     let manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
 
-    dbg!(manager);
+    match manager.get_table() {
+        Ok(table) => {
+            println!("{table}");
+        }
+        Err(PasswordStoreError::NoEntryAvailable) => {
+            colour::e_red_ln!("No entry available");
+        }
+        Err(error) => {
+            return Err(error.into());
+        }
+    };
 
     Ok(())
 }
@@ -162,6 +171,7 @@ pub struct GenArgs {
 }
 
 impl GenArgs {
+    /// Generate random password based on flags
     pub fn generate_password(self) {
         // If no flags is given then generate a password including Uppercase, lowercase & digits
         let password_generator = if self.digits || self.lowercase || self.uppercase || self.symbols
