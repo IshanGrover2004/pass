@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use cli_table::{Cell, CellStruct, Style, Table, TableDisplay};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
@@ -44,6 +45,9 @@ pub enum PasswordStoreError {
 
     #[error("Encrypt Error: {0}")]
     UnableToEncryptError(String),
+
+    #[error("No available entry")]
+    NoEntryAvailable,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -166,6 +170,31 @@ impl PasswordStore {
 
     pub fn fuzzy_find() -> Vec<PasswordEntry> {
         unimplemented!();
+    }
+
+    /// Table
+    pub fn get_table(&self) -> Result<TableDisplay, PasswordStoreError> {
+        if self.passwords.is_empty() {
+            Err(PasswordStoreError::NoEntryAvailable)
+        } else {
+            let table = self
+                .passwords
+                .iter()
+                .map(|p| p.table())
+                .collect::<Vec<Vec<CellStruct>>>()
+                .table()
+                .title(vec![
+                    "Service".cell().bold(true),
+                    "Username".cell().bold(true),
+                    "Password".cell().bold(true),
+                    "Notes".cell().bold(true),
+                ])
+                .bold(true)
+                .display()
+                .expect("Unable to list entries");
+
+            Ok(table)
+        }
     }
 }
 
