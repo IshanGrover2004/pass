@@ -53,8 +53,8 @@ pub enum PasswordStoreError {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PasswordStore {
-    passwords: Vec<PasswordEntry>,
-    master_password: MasterPassword<Verified>,
+    pub(crate) passwords: Vec<PasswordEntry>,
+    pub(crate) master_password: MasterPassword<Verified>,
 }
 
 impl SerdeEncryptSharedKey for PasswordStore {
