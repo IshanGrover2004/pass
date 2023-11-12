@@ -4,7 +4,10 @@ use once_cell::sync::Lazy;
 use ring::pbkdf2;
 use serde::{Deserialize, Serialize};
 
-use super::util::{is_strong_password, password_input};
+use super::{
+    store::{PasswordStore, PASS_ENTRY_STORE},
+    util::{is_strong_password, password_input},
+};
 use crate::pass::util::{password_hash, PASS_DIR_PATH, XDG_BASE};
 
 pub static MASTER_PASS_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
@@ -206,6 +209,7 @@ impl MasterPassword<Verified> {
                 if prompt_new_master.as_ref() == confirm_master_password {
                     break;
                 }
+
                 if attempt == 2 {
                     colour::e_red_ln!("Confirm password does not match");
                     std::process::exit(1);
@@ -213,10 +217,19 @@ impl MasterPassword<Verified> {
                 colour::e_red_ln!("Confirm password does not match, retry({})", 2 - attempt);
             }
 
+            // Storing old master pass for later
+            let old_master = self.clone();
+
+            // Setting up new master in self
             let hash = password_hash(prompt_new_master.trim())
                 .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
+            self.master_pass = Some(prompt_new_master.as_bytes().to_vec());
             self.hash = Some(hash.clone());
 
+            // Re-encrypting contents over new master pass
+            self.clone().re_encrypt_contents(old_master).unwrap();
+
+            // Store hash of changed master pass
             std::fs::write(MASTER_PASS_STORE.to_path_buf(), hash)
                 .map_err(MasterPasswordError::UnableToWriteFile)?;
             colour::green_ln!("Master password changed successfully");
@@ -228,10 +241,25 @@ impl MasterPassword<Verified> {
         }
     }
 
-    // Derive a encryption key from master password & salt
+    ///
+    pub fn re_encrypt_contents(&self, old_master: MasterPassword<Verified>) -> anyhow::Result<()> {
+        // Load all entries form db by old master
+        let mut storage = PasswordStore::load(PASS_ENTRY_STORE.to_path_buf(), old_master)?;
+
+        // Changing master password
+        storage.master_password = self.clone();
+
+        // Dump the entries encrypted from new_pass to db
+        storage.dump(PASS_ENTRY_STORE.to_path_buf()).unwrap();
+
+        Ok(())
+    }
+
+    /// Derive a encryption key from master password & salt
     pub fn derive_encryption_key(&self, salt: impl AsRef<[u8]>) -> [u8; 32] {
         let mut encryption_key = [0_u8; 32];
 
+        // Deriving a encryption key using master pass
         pbkdf2::derive(
             pbkdf2::PBKDF2_HMAC_SHA256,
             NonZeroU32::new(600_000).unwrap(),
