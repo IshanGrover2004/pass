@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     store::{PasswordStore, PASS_ENTRY_STORE},
-    util::{is_strong_password, password_input},
+    util::password_input,
 };
-use crate::pass::util::{password_hash, PASS_DIR_PATH, XDG_BASE};
+use crate::pass::util::{input_master_pass, password_hash, PASS_DIR_PATH, XDG_BASE};
 
 pub static MASTER_PASS_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
     XDG_BASE
@@ -43,7 +43,7 @@ pub enum MasterPasswordError {
     IO(#[source] std::io::Error),
 
     #[error("Master password was not confirmed")]
-    MasterPassConfirm,
+    MasterPassConfirmFailed,
 
     #[error("Master password is not strong enough")]
     PassNotStrong,
@@ -109,38 +109,18 @@ impl MasterPassword<Init> {
             std::fs::create_dir_all(PASS_DIR_PATH.to_owned())
                 .map_err(MasterPasswordError::UnableToCreateDirs)?;
 
-            let mut master_pass_input: String;
-
-            loop {
-                // Ask user master password
-                master_pass_input = password_input("Enter master password:")
-                    .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
-
-                if !is_strong_password(&master_pass_input) {
-                    colour::e_red_ln!("Password is not strong enough!");
-                    continue;
-                }
-
-                let confirm_pass = password_input("Confirm master pass:")
-                    .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
-
-                if master_pass_input != confirm_pass {
-                    colour::e_red_ln!("Password doesn't match");
-                    return Err(MasterPasswordError::MasterPassConfirm);
-                }
-
-                break;
-            }
+            let master_pass =
+                input_master_pass().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
             // Hashing prompted master password
-            let hashed_password = password_hash(&master_pass_input)
+            let hashed_password = password_hash(master_pass)
                 .map_err(|_| MasterPasswordError::BcryptError("Unable to hash".to_string()))?;
 
             // Store hashed master password
             std::fs::write(MASTER_PASS_STORE.to_path_buf(), &hashed_password)
                 .map_err(MasterPasswordError::UnableToWriteFile)?;
 
-            colour::green_ln!("Initialising master pass...");
+            colour::green_ln!("Pass initialised successfully");
 
             Ok(MasterPassword {
                 master_pass: None,
@@ -157,7 +137,7 @@ impl MasterPassword<UnVerified> {
         std::io::stdout().flush().ok(); // Flush the output to ensure prompt is displayed
 
         // Taking input master password
-        let prompt_master_password = password_input("Enter Master password: ")
+        let prompt_master_password = password_input("Enter your master password: ")
             .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
         // Storing prompt password to object
@@ -194,51 +174,34 @@ impl MasterPassword<Verified> {
         }
     }
 
-    // TODO: Encrypt all contents with new pass bcs of changed master-pass
-
     // To change master password
     pub fn change(&mut self) -> Result<(), MasterPasswordError> {
-        let prompt_new_master = password_input("Enter Master password: ")
-            .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+        let prompt_new_master =
+            input_master_pass().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
-        if is_strong_password(&prompt_new_master) {
-            for attempt in 0..3 {
-                let confirm_master_password = password_input("Confirm master password: ")
-                    .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+        // Storing old master pass for later
+        let old_master = self.clone();
 
-                if prompt_new_master.as_ref() == confirm_master_password {
-                    break;
-                }
+        // Setting up new master in self
+        let hash = password_hash(prompt_new_master.trim())
+            .map_err(|_| MasterPasswordError::BcryptError("Unable to hash".to_string()))?;
+        self.master_pass = Some(prompt_new_master.as_bytes().to_vec());
+        self.hash = Some(hash.clone());
 
-                if attempt == 2 {
-                    colour::e_red_ln!("Confirm password does not match");
-                    std::process::exit(1);
-                }
-                colour::e_red_ln!("Confirm password does not match, retry({})", 2 - attempt);
-            }
+        // Re-encrypting contents over new master pass
 
-            // Storing old master pass for later
-            let old_master = self.clone();
-
-            // Setting up new master in self
-            let hash = password_hash(prompt_new_master.trim())
-                .map_err(|_| MasterPasswordError::BcryptError(String::from("Unable to hash")))?;
-            self.master_pass = Some(prompt_new_master.as_bytes().to_vec());
-            self.hash = Some(hash.clone());
-
-            // Re-encrypting contents over new master pass
-            self.clone().re_encrypt_contents(old_master).unwrap();
-
-            // Store hash of changed master pass
-            std::fs::write(MASTER_PASS_STORE.to_path_buf(), hash)
-                .map_err(MasterPasswordError::UnableToWriteFile)?;
-            colour::green_ln!("Master password changed successfully");
-
-            Ok(())
-        } else {
-            colour::e_red_ln!("Password is not strong enough!");
-            self.change()
+        if PASS_ENTRY_STORE.exists() {
+            self.clone()
+                .re_encrypt_contents(old_master)
+                .expect("Unable to re-encrypt entries");
         }
+
+        // Store hash of changed master pass
+        std::fs::write(MASTER_PASS_STORE.to_path_buf(), hash)
+            .map_err(MasterPasswordError::UnableToWriteFile)?;
+        colour::green_ln!("Master password changed successfully");
+
+        Ok(())
     }
 
     ///
@@ -249,8 +212,8 @@ impl MasterPassword<Verified> {
         // Changing master password
         storage.master_password = self.clone();
 
-        // Dump the entries encrypted from new_pass to db
-        storage.dump(PASS_ENTRY_STORE.to_path_buf()).unwrap();
+        // Again encrypt entries with new pass
+        storage.dump(PASS_ENTRY_STORE.to_path_buf())?;
 
         Ok(())
     }

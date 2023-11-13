@@ -1,8 +1,9 @@
+use super::master::MASTER_PASS_STORE;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use once_cell::sync::Lazy;
 use ring::rand::{SecureRandom, SystemRandom};
 
-use super::master::MASTER_PASS_STORE;
+use inquire::{validator::Validation, Password, PasswordDisplayMode};
 
 // Making Base directories by xdg config
 pub(crate) static APP_NAME: &str = ".pass";
@@ -36,6 +37,28 @@ pub fn password_hash(content: impl AsRef<[u8]>) -> Result<Vec<u8>, UtilError> {
         .map_err(|_| UtilError::BcryptError(String::from("Unable to hash password")))?
         .as_bytes()
         .to_vec())
+}
+
+pub fn input_master_pass() -> anyhow::Result<String> {
+    let validator = |input: &str| {
+        if !is_strong_password(input) {
+            Ok(Validation::Invalid("Password is not strong enough.".into()))
+        } else {
+            Ok(Validation::Valid)
+        }
+    };
+
+    let password = Password::new("Enter master password: ")
+        .with_display_toggle_enabled()
+        .with_display_mode(PasswordDisplayMode::Masked)
+        .with_custom_confirmation_message("Confirm master password:")
+        .with_custom_confirmation_error_message("The password don't match.")
+        .with_validator(validator)
+        .with_formatter(&|_| String::from("Password stored"))
+        .with_help_message("Password must include => lowercase, Uppercase, digits, symbols")
+        .prompt()?;
+
+    Ok(password)
 }
 
 // Function to verify the master password is strong enough
@@ -97,10 +120,9 @@ pub fn is_pass_initialised() -> bool {
     MASTER_PASS_STORE.to_path_buf().exists()
 }
 
-pub fn password_input(message: impl AsRef<str>) -> Result<String, UtilError> {
-    colour::green!("{}", message.as_ref());
-    Ok(rpassword::read_password()
-        .map_err(|_| UtilError::UnableToReadFromConsole)?
-        .trim()
-        .to_string())
+pub fn password_input(message: impl AsRef<str>) -> anyhow::Result<String> {
+    Ok(Password::new(message.as_ref())
+        .with_display_mode(PasswordDisplayMode::Masked)
+        .without_confirmation()
+        .prompt()?)
 }
