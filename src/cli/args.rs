@@ -1,4 +1,8 @@
+use std::borrow::BorrowMut;
+
 use clap::{Args, Parser, Subcommand};
+use inquire::validator::Validation;
+use inquire::CustomType;
 
 use crate::pass::master::{MasterPassword, Verified};
 use crate::pass::{
@@ -83,17 +87,40 @@ impl From<&AddArgs> for PasswordEntry {
 
 impl AddArgs {
     pub fn add_entries(
-        &self,
+        &mut self,
         master_password: &MasterPassword<Verified>,
     ) -> Result<(), PasswordStoreError> {
-        let mut manager =
-            PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password.to_owned())?;
+        // let mut manager =
+        //     PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password.to_owned())?;
 
-        // Push the new entries
-        manager.push_entry(self.into());
+        self.username.is_none().then(|| {
+            self.borrow_mut().username = CustomType::<String>::new("Enter username: ")
+                .with_formatter(&|i| format!("{}", i))
+                .with_error_message("Enter a valid username")
+                .with_help_message("Press <Esc> to skip the username")
+                // .with_default(None)
+                .prompt_skippable()
+                .unwrap();
+        });
 
-        // New entries are pushed to database
-        manager.dump(PASS_ENTRY_STORE.to_path_buf())?;
+        // TODO: Set Default value None, Validator issue, Neglect Unwrap
+        /*
+                .with_validator(|i: &'a String| {
+                    if i.to_string() == "\n".to_string() {
+                        Ok(Validation::Invalid("Enter Username or Press <Esc>".into()))
+                    } else {
+                        Ok(Validation::Valid)
+                    }
+                })
+        */
+
+        dbg!(self);
+
+        // // Push the new entries
+        // manager.push_entry(self.into());
+        //
+        // // New entries are pushed to database
+        // manager.dump(PASS_ENTRY_STORE.to_path_buf())?;
 
         // TODO: Impl Drop trait to automatically dump all password entries in DB
 

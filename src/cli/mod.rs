@@ -61,7 +61,7 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             unlocked.lock();
         }
 
-        Some(Commands::Add(args)) => {
+        Some(Commands::Add(mut args)) => {
             let mut master = master_password.init()?;
 
             for attempt in 0..3 {
@@ -69,7 +69,7 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
 
                 match master.verify() {
                     Ok(verified) => {
-                        args.add_entries(&verified)?;
+                        args.borrow_mut().add_entries(&verified)?;
                         break;
                     }
                     Err(MasterPasswordError::WrongMasterPassword) => {
