@@ -29,6 +29,9 @@ pub enum PasswordStoreError {
     #[error("The master password store file is not readable due to {0}")]
     UnableToRead(std::io::Error),
 
+    #[error("Unable to read from console")]
+    UnableToReadFromConsole,
+
     #[error("Unable to create dirs for password storage")]
     UnableToCreateDirs(std::io::Error),
 
