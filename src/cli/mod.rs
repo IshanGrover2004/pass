@@ -57,9 +57,6 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
 
             // Change the master-pass and store it in db
             unlocked.change()?;
-
-            // Again lock the master-pass
-            unlocked.lock();
         }
 
         Some(Commands::Add(mut args)) => {

@@ -186,14 +186,6 @@ impl MasterPassword<UnVerified> {
 }
 
 impl MasterPassword<Verified> {
-    pub fn lock(self) -> MasterPassword<UnVerified> {
-        MasterPassword {
-            hash: self.hash,
-            master_pass: None,
-            state: PhantomData::<UnVerified>,
-        }
-    }
-
     // To change master password
     pub fn change(&mut self) -> Result<(), MasterPasswordError> {
         let prompt_new_master =
