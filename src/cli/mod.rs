@@ -8,7 +8,7 @@ use colour::e_red_ln;
 
 use crate::pass::master::Init;
 use crate::{
-    cli::args::{Cli, Commands},
+    cli::args::{Cli, Command},
     pass::master::MasterPassword,
 };
 
@@ -32,8 +32,8 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
     // Parsing the command line arguments into Cli struct
     let args = Cli::parse();
 
-    match args.commands {
-        Some(Commands::Init(_)) => {
+    match args.command {
+        Some(Command::Init) => {
             match MasterPassword::is_initialised() {
                 true => {
                     colour::green_ln!("Pass already initialised!!");
@@ -44,7 +44,7 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             };
         }
 
-        Some(Commands::ChangeMaster) => {
+        Some(Command::ChangeMaster) => {
             // Initialises master password
             let mut master = master_password.load()?;
 
@@ -59,7 +59,7 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             unlocked.change()?;
         }
 
-        Some(Commands::Add(mut args)) => {
+        Some(Command::Add(mut args)) => {
             let mut master = master_password.load()?;
 
             for attempt in 0..3 {
@@ -88,15 +88,15 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             }
         }
 
-        Some(Commands::Remove(_args)) => {
+        Some(Command::Remove(_args)) => {
             unimplemented!();
         }
 
-        Some(Commands::Update(_args)) => {
+        Some(Command::Update(_args)) => {
             unimplemented!();
         }
 
-        Some(Commands::List(_)) => {
+        Some(Command::List(_)) => {
             let mut master = master_password.load()?;
 
             for attempt in 0..3 {
@@ -125,11 +125,11 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             }
         }
 
-        Some(Commands::Get(_args)) => {
+        Some(Command::Get(_args)) => {
             unimplemented!();
         }
 
-        Some(Commands::Gen(args)) => {
+        Some(Command::Gen(args)) => {
             args.generate_password();
         }
 

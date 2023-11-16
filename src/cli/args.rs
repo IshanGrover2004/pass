@@ -12,6 +12,8 @@ use crate::pass::{
     util::copy_to_clipboard,
 };
 
+// TODO: pass gen -Uuds 2 shows vague error
+
 // CLI Design
 #[derive(Parser)]
 #[clap(
@@ -23,13 +25,13 @@ use crate::pass::{
 pub struct Cli {
     /// Subcommand to do some operation like add, remove, etc.
     #[command(subcommand)]
-    pub commands: Option<Commands>,
+    pub command: Option<Command>,
 }
 
 #[derive(Subcommand)]
-pub enum Commands {
+pub enum Command {
     /// Initialize the pass
-    Init(InitArgs),
+    Init,
 
     /// Change Master password
     ChangeMaster,
@@ -52,9 +54,6 @@ pub enum Commands {
     /// Generate a password
     Gen(GenArgs),
 }
-
-#[derive(Args)]
-pub struct InitArgs;
 
 #[derive(Args, Debug, Clone)]
 pub struct AddArgs {
@@ -203,7 +202,7 @@ pub fn list_entries(master_password: MasterPassword<Verified>) -> anyhow::Result
 pub struct GetArgs {
     /// Username/email of the account
     // #[clap(short = 'n', long = "name")]
-    username: String,
+    service_name: String,
 }
 
 #[derive(Args, Debug)]
@@ -249,9 +248,7 @@ impl GenArgs {
         } else {
             passwords::PasswordGenerator::new()
                 .length(self.length)
-                .lowercase_letters(true)
                 .uppercase_letters(true)
-                .numbers(true)
                 .symbols(false)
                 .strict(true)
         };
