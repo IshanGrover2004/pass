@@ -79,7 +79,7 @@ impl PasswordStore {
                 std::fs::File::create(file_path.as_ref())
                     .map_err(PasswordStoreError::UnableToCreateFile)?;
 
-                // Returning an empty Vec bcs of no Entry available
+                // Returning an empty Vec<> because of no Entry available
                 Ok(PasswordStore {
                     passwords: Vec::new(),
                     master_password,
@@ -217,7 +217,6 @@ mod test {
             hash: None,
             state: std::marker::PhantomData,
         };
-
         // Making a new Password manager
         let mut manager = PasswordStore::new(TESTING_PASS.to_path_buf(), test_master_pass.clone())?;
 
@@ -249,6 +248,8 @@ mod test {
 
         assert_eq!(manager.passwords[0], decrypted_manager.passwords[0]);
         assert_eq!(manager.passwords[1], decrypted_manager.passwords[1]);
+
+        std::fs::remove_file(TESTING_PASS.as_path()).unwrap();
 
         Ok(())
     }

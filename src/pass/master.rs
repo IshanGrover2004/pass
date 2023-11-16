@@ -248,6 +248,7 @@ impl MasterPassword<Verified> {
 
         // Changing master password
         storage.master_password = self.clone();
+        // storage.change_pass(new_pass);
 
         // Again encrypt entries with new pass
         storage.dump(PASS_ENTRY_STORE.to_path_buf())?;
