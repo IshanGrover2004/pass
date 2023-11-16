@@ -9,7 +9,7 @@ use colour::e_red_ln;
 use crate::pass::master::Init;
 use crate::{
     cli::args::{Cli, Commands},
-    pass::{master::MasterPassword, util::is_pass_initialised},
+    pass::master::MasterPassword,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -34,7 +34,7 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
 
     match args.commands {
         Some(Commands::Init(_)) => {
-            match is_pass_initialised() {
+            match MasterPassword::is_initialised() {
                 true => {
                     colour::green_ln!("Pass already initialised!!");
                 }
@@ -46,7 +46,7 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
 
         Some(Commands::ChangeMaster) => {
             // Initialises master password
-            let mut master = master_password.init()?;
+            let mut master = master_password.load()?;
 
             // Prompt and set master password
             master.prompt()?;
@@ -60,7 +60,7 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
         }
 
         Some(Commands::Add(mut args)) => {
-            let mut master = master_password.init()?;
+            let mut master = master_password.load()?;
 
             for attempt in 0..3 {
                 master.borrow_mut().prompt()?;
@@ -97,7 +97,7 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
         }
 
         Some(Commands::List(_)) => {
-            let mut master = master_password.init()?;
+            let mut master = master_password.load()?;
 
             for attempt in 0..3 {
                 master.borrow_mut().prompt()?;

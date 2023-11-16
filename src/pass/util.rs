@@ -1,4 +1,3 @@
-use super::master::MASTER_PASS_STORE;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use once_cell::sync::Lazy;
 use ring::rand::{SecureRandom, SystemRandom};
@@ -34,7 +33,7 @@ pub fn get_random_salt() -> [u8; 16] {
 
 // Generate hash for given content
 pub fn password_hash(content: impl AsRef<[u8]>) -> Result<String, UtilError> {
-    bcrypt::hash(content, bcrypt::DEFAULT_COST)
+    bcrypt::hash(content.as_ref(), bcrypt::DEFAULT_COST)
         .map_err(|_| UtilError::BcryptError(String::from("Unable to hash password")))
 }
 
@@ -127,11 +126,6 @@ pub fn copy_to_clipboard(password: String) -> anyhow::Result<()> {
     ctx.get_contents()
         .map_err(|_| anyhow::anyhow!("Unable to get clipboard contents"))?;
     Ok(())
-}
-
-// To check any pass initialised
-pub fn is_pass_initialised() -> bool {
-    MASTER_PASS_STORE.to_path_buf().exists()
 }
 
 // TODO: Don't use anyhow anywhere other than main.rs
