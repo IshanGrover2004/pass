@@ -1,4 +1,4 @@
-use std::{io::Write, marker::PhantomData, num::NonZeroU32};
+use std::{io::Write, marker::PhantomData, num::NonZeroU32, string::FromUtf8Error};
 
 use once_cell::sync::Lazy;
 use ring::pbkdf2;
@@ -8,6 +8,7 @@ use super::{
     store::{PasswordStore, PASS_ENTRY_STORE},
     util::password_input,
 };
+
 use crate::pass::util::{input_master_pass, password_hash, PASS_DIR_PATH, XDG_BASE};
 
 pub static MASTER_PASS_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
@@ -34,12 +35,12 @@ pub enum MasterPasswordError {
     WrongMasterPassword,
 
     #[error("Unable to convert {0}")]
-    UnableToConvert(String),
+    UnableToConvert(#[source] FromUtf8Error),
 
     #[error("Bcrypt Error: {0}")]
     BcryptError(String),
 
-    #[error("Unable to use Console IO: {0}")]
+    #[error("Unable to flush or use console IO: {0}")]
     IO(#[source] std::io::Error),
 
     #[error("Master password was not confirmed")]
@@ -69,7 +70,7 @@ pub struct MasterPassword<State = UnInit> {
     /// Master password
     pub master_pass: Option<Vec<u8>>,
     /// Master password hashed
-    pub hash: Option<Vec<u8>>,
+    pub hash: Option<String>,
     /// [MasterPassword] state
     pub state: PhantomData<State>,
 }
@@ -88,6 +89,10 @@ impl MasterPassword<UnInit> {
     pub fn new() -> MasterPassword<Init> {
         MasterPassword::default()
     }
+    pub fn create_pass_dirs() -> Result<(), MasterPasswordError> {
+        std::fs::create_dir_all(PASS_DIR_PATH.to_owned())
+            .map_err(MasterPasswordError::UnableToCreateDirs)
+    }
 }
 
 impl MasterPassword<Init> {
@@ -95,54 +100,65 @@ impl MasterPassword<Init> {
     pub fn init(self) -> Result<MasterPassword<UnVerified>, MasterPasswordError> {
         // If master password file exists, then read hashed password and set to object
         if MASTER_PASS_STORE.exists() {
-            let hashed_password = std::fs::read(MASTER_PASS_STORE.to_path_buf())
-                .map_err(MasterPasswordError::UnableToRead)?;
-
-            Ok(MasterPassword {
-                hash: Some(hashed_password),
+            return Ok(MasterPassword {
+                hash: Some(self.get_hash_from_db()?),
                 master_pass: None,
                 state: PhantomData::<UnVerified>,
-            })
+            });
         }
-        // If master password doesn't exist in db, generate a new one
-        else {
-            std::fs::create_dir_all(PASS_DIR_PATH.to_owned())
-                .map_err(MasterPasswordError::UnableToCreateDirs)?;
 
-            let master_pass =
-                input_master_pass().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+        self.generate_new_masterpass()
+    }
 
-            // Hashing prompted master password
-            let hashed_password = password_hash(master_pass)
-                .map_err(|_| MasterPasswordError::BcryptError("Unable to hash".to_string()))?;
+    fn get_hash_from_db(&self) -> Result<String, MasterPasswordError> {
+        String::from_utf8(
+            std::fs::read(MASTER_PASS_STORE.to_path_buf())
+                .map_err(MasterPasswordError::UnableToRead)?,
+        )
+        .map_err(MasterPasswordError::UnableToConvert)
+    }
 
-            // Store hashed master password
-            std::fs::write(MASTER_PASS_STORE.to_path_buf(), &hashed_password)
-                .map_err(MasterPasswordError::UnableToWriteFile)?;
+    fn generate_new_masterpass(&self) -> Result<MasterPassword<UnVerified>, MasterPasswordError> {
+        MasterPassword::create_pass_dirs()?;
 
-            colour::green_ln!("Pass initialised successfully");
+        let master_pass =
+            input_master_pass().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
-            Ok(MasterPassword {
-                master_pass: None,
-                hash: Some(hashed_password),
-                state: PhantomData::<UnVerified>,
-            })
-        }
+        // Hashing prompted master password
+        let hashed_password = password_hash(master_pass)
+            .map_err(|_| MasterPasswordError::BcryptError("Unable to hash".to_string()))?;
+
+        // Store hashed master password
+        std::fs::write(MASTER_PASS_STORE.to_path_buf(), &hashed_password)
+            .map_err(MasterPasswordError::UnableToWriteFile)?;
+
+        colour::green_ln!("Pass initialised successfully");
+
+        Ok(MasterPassword {
+            master_pass: None,
+            hash: Some(hashed_password),
+            state: PhantomData::<UnVerified>,
+        })
     }
 }
 
 impl MasterPassword<UnVerified> {
     /// Takes input master_password from user
     pub fn prompt(&mut self) -> Result<(), MasterPasswordError> {
-        std::io::stdout().flush().ok(); // Flush the output to ensure prompt is displayed
+        std::io::stdout().flush().map_err(MasterPasswordError::IO)?; // Flush the output to ensure prompt is displayed
 
         // Taking input master password
         let prompt_master_password = password_input("Enter your master password: ")
             .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
         // Storing prompt password to object
-        self.master_pass = Some(prompt_master_password.as_bytes().to_vec());
+        self.master_pass = Some(prompt_master_password);
         Ok(())
+    }
+
+    fn get_hash(&self) -> &String {
+        assert!(self.hash.is_some());
+        self.hash.as_ref().unwrap()
     }
 
     // Unlock the master password
@@ -150,8 +166,10 @@ impl MasterPassword<UnVerified> {
         std::io::stdout().flush().map_err(MasterPasswordError::IO)?; // Flush the output to ensure prompt is displayed
 
         // TODO: Improve code
-        let password = self.master_pass.clone().unwrap();
-        let hash = String::from_utf8(self.hash.clone().unwrap()).unwrap();
+        let password = self.master_pass.clone().expect("None is unrechable");
+
+        // TODO: the last unwrap should be handled
+        let hash = self.get_hash();
 
         match bcrypt::verify(password, &hash) {
             Ok(true) => Ok(MasterPassword {
