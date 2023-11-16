@@ -179,32 +179,29 @@ impl PasswordStore {
     /// Table
     pub fn get_table(&self) -> Result<TableDisplay, PasswordStoreError> {
         if self.passwords.is_empty() {
-            Err(PasswordStoreError::NoEntryAvailable)
-        } else {
-            let table = self
-                .passwords
-                .iter()
-                .enumerate()
-                .map(|(index, data)| {
-                    let mut table = data.table();
-                    let serial = (index + 1).to_string().cell().justify(Justify::Center);
-                    table.insert(0, serial);
-                    table
-                })
-                .collect::<Vec<Vec<_>>>()
-                .table()
-                .title(vec![
-                    "Serial no.".cell().bold(true),
-                    "Service".cell().bold(true),
-                    "Username".cell().bold(true),
-                    "Notes".cell().bold(true),
-                ])
-                .bold(true)
-                .display()
-                .expect("Unable to list entries");
-
-            Ok(table)
+            return Err(PasswordStoreError::NoEntryAvailable);
         }
+        Ok(self
+            .passwords
+            .iter()
+            .enumerate()
+            .map(|(index, data)| {
+                let mut table = data.table();
+                let serial = (index + 1).to_string().cell().justify(Justify::Center);
+                table.insert(0, serial);
+                table
+            })
+            .collect::<Vec<Vec<_>>>()
+            .table()
+            .title(vec![
+                "Serial no.".cell().bold(true),
+                "Service".cell().bold(true),
+                "Username".cell().bold(true),
+                "Notes".cell().bold(true),
+            ])
+            .bold(true)
+            .display()
+            .expect("Unable to draw table"))
     }
 }
 
