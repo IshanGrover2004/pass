@@ -6,7 +6,7 @@ use std::borrow::BorrowMut;
 use clap::Parser;
 use colour::e_red_ln;
 
-use crate::pass::master::{Init, MasterPasswordError};
+use crate::pass::master::Init;
 use crate::{
     cli::args::{Cli, Commands},
     pass::{master::MasterPassword, util::is_pass_initialised},
@@ -52,7 +52,8 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             master.prompt()?;
 
             // Change state to verified
-            let mut unlocked = master.verify()?;
+            // TODO: Check if password is wrong and handle the case
+            let mut unlocked = master.verify()?.unwrap();
 
             // Change the master-pass and store it in db
             unlocked.change()?;
@@ -68,11 +69,11 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
                 master.borrow_mut().prompt()?;
 
                 match master.verify() {
-                    Ok(verified) => {
+                    Ok(Some(verified)) => {
                         args.borrow_mut().add_entries(&verified)?;
                         break;
                     }
-                    Err(MasterPasswordError::WrongMasterPassword) => {
+                    Ok(None) => {
                         if attempt < 2 {
                             colour::e_red_ln!(
                                 "Incorrect master password, retry ({}):",
@@ -105,11 +106,11 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
                 master.borrow_mut().prompt()?;
 
                 match master.verify() {
-                    Ok(verified) => {
+                    Ok(Some(verified)) => {
                         args::list_entries(verified)?;
                         break;
                     }
-                    Err(MasterPasswordError::WrongMasterPassword) => {
+                    Ok(None) => {
                         if attempt < 2 {
                             colour::e_red_ln!(
                                 "Incorrect master password, retry ({}):",

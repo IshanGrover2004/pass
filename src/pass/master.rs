@@ -161,25 +161,27 @@ impl MasterPassword<UnVerified> {
         self.hash.as_ref().unwrap()
     }
 
+    fn get_pass(&self) -> &Vec<u8> {
+        assert!(self.master_pass.is_some());
+        self.master_pass.as_ref().unwrap()
+    }
+
     // Unlock the master password
-    pub fn verify(&self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
+    pub fn verify(&self) -> Result<Option<MasterPassword<Verified>>, MasterPasswordError> {
         std::io::stdout().flush().map_err(MasterPasswordError::IO)?; // Flush the output to ensure prompt is displayed
 
-        // TODO: Improve code
-        let password = self.master_pass.clone().expect("None is unrechable");
-
-        // TODO: the last unwrap should be handled
+        let password = self.get_pass();
         let hash = self.get_hash();
 
-        match bcrypt::verify(password, hash) {
-            Ok(true) => Ok(MasterPassword {
-                master_pass: self.master_pass.clone(),
-                hash: self.hash.clone(),
-                state: PhantomData::<Verified>,
-            }),
-            Ok(false) => Err(MasterPasswordError::WrongMasterPassword),
-            Err(e) => Err(MasterPasswordError::BcryptError(e.to_string())),
-        }
+        bcrypt::verify(password, hash)
+            .map(|verification_status| {
+                verification_status.then(|| MasterPassword {
+                    master_pass: self.master_pass.clone(),
+                    hash: self.hash.clone(),
+                    state: PhantomData::<Verified>,
+                })
+            })
+            .map_err(|e| MasterPasswordError::BcryptError(e.to_string()))
     }
 }
 
