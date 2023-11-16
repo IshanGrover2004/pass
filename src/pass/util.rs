@@ -34,8 +34,8 @@ pub fn get_random_salt() -> [u8; 16] {
 
 // Generate hash for given content
 pub fn password_hash(content: impl AsRef<[u8]>) -> Result<String, UtilError> {
-    Ok(bcrypt::hash(content, bcrypt::DEFAULT_COST)
-        .map_err(|_| UtilError::BcryptError(String::from("Unable to hash password")))?)
+    bcrypt::hash(content, bcrypt::DEFAULT_COST)
+        .map_err(|_| UtilError::BcryptError(String::from("Unable to hash password")))
 }
 
 pub fn input_master_pass() -> anyhow::Result<String> {
@@ -84,7 +84,7 @@ pub fn is_strong_password(password: impl AsRef<str>) -> bool {
 
 pub fn prompt_string(message: impl AsRef<str>) -> anyhow::Result<Option<String>> {
     Ok(Text::new(message.as_ref())
-        .with_formatter(&|i| format!("{}", i))
+        .with_formatter(&|i| i.to_string())
         .with_help_message("Press <Esc> to skip the username")
         .with_validator(|input: &str| {
             if input.is_empty() {

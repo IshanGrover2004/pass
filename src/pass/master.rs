@@ -171,7 +171,7 @@ impl MasterPassword<UnVerified> {
         // TODO: the last unwrap should be handled
         let hash = self.get_hash();
 
-        match bcrypt::verify(password, &hash) {
+        match bcrypt::verify(password, hash) {
             Ok(true) => Ok(MasterPassword {
                 master_pass: self.master_pass.clone(),
                 hash: self.hash.clone(),
