@@ -3,7 +3,8 @@ use clipboard::{ClipboardContext, ClipboardProvider};
 use once_cell::sync::Lazy;
 use ring::rand::{SecureRandom, SystemRandom};
 
-use inquire::{validator::Validation, Password, PasswordDisplayMode, Text};
+use inquire::{validator::Validation, PasswordDisplayMode, Text};
+type InquirePassword<'a> = inquire::Password<'a>;
 
 // Making Base directories by xdg config
 pub(crate) static APP_NAME: &str = ".pass";
@@ -32,11 +33,9 @@ pub fn get_random_salt() -> [u8; 16] {
 }
 
 // Generate hash for given content
-pub fn password_hash(content: impl AsRef<[u8]>) -> Result<Vec<u8>, UtilError> {
+pub fn password_hash(content: impl AsRef<[u8]>) -> Result<String, UtilError> {
     Ok(bcrypt::hash(content, bcrypt::DEFAULT_COST)
-        .map_err(|_| UtilError::BcryptError(String::from("Unable to hash password")))?
-        .as_bytes()
-        .to_vec())
+        .map_err(|_| UtilError::BcryptError(String::from("Unable to hash password")))?)
 }
 
 pub fn input_master_pass() -> anyhow::Result<String> {
@@ -48,7 +47,7 @@ pub fn input_master_pass() -> anyhow::Result<String> {
         }
     };
 
-    let password = Password::new("Enter master password: ")
+    let password = InquirePassword::new("Enter master password: ")
         .with_display_toggle_enabled()
         .with_display_mode(PasswordDisplayMode::Masked)
         .with_custom_confirmation_message("Confirm master password:")
@@ -135,9 +134,12 @@ pub fn is_pass_initialised() -> bool {
     MASTER_PASS_STORE.to_path_buf().exists()
 }
 
-pub fn password_input(message: impl AsRef<str>) -> anyhow::Result<String> {
-    Ok(Password::new(message.as_ref())
+// TODO: Don't use anyhow anywhere other than main.rs
+pub fn password_input(message: impl AsRef<str>) -> anyhow::Result<Vec<u8>> {
+    Ok(InquirePassword::new(message.as_ref())
         .with_display_mode(PasswordDisplayMode::Masked)
         .without_confirmation()
-        .prompt()?)
+        .prompt()?
+        .as_bytes()
+        .to_vec())
 }
