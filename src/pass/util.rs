@@ -3,7 +3,7 @@ use clipboard::{ClipboardContext, ClipboardProvider};
 use once_cell::sync::Lazy;
 use ring::rand::{SecureRandom, SystemRandom};
 
-use inquire::{validator::Validation, Password, PasswordDisplayMode};
+use inquire::{validator::Validation, Password, PasswordDisplayMode, Text};
 
 // Making Base directories by xdg config
 pub(crate) static APP_NAME: &str = ".pass";
@@ -81,6 +81,21 @@ pub fn is_strong_password(password: impl AsRef<str>) -> bool {
     );
 
     has_lowercase && has_uppercase && has_digit && has_special
+}
+
+pub fn prompt_string(message: impl AsRef<str>) -> anyhow::Result<Option<String>> {
+    Ok(Text::new(message.as_ref())
+        .with_formatter(&|i| format!("{}", i))
+        .with_help_message("Press <Esc> to skip the username")
+        .with_validator(|input: &str| {
+            if input.is_empty() {
+                Ok(Validation::Invalid("To skip, press <ESC>".into()))
+            } else {
+                Ok(Validation::Valid)
+            }
+        })
+        .prompt_skippable()
+        .map_err(|_| UtilError::UnableToReadFromConsole)?)
 }
 
 // Generate random password of given length
