@@ -127,7 +127,10 @@ impl MasterPassword<Init> {
         .map_err(MasterPasswordError::UnableToConvert)
     }
 
-    pub fn from_pass(password: String) -> Result<MasterPassword<Verified>, MasterPasswordError> {
+    pub fn from_pass<P>(password: P) -> Result<MasterPassword<Verified>, MasterPasswordError>
+    where
+        P: AsRef<[u8]>,
+    {
         // Hashing prompted master password
         let hashed_password = password_hash(&password)
             .map_err(|_| MasterPasswordError::BcryptError("Unable to hash".to_string()))?;
@@ -139,7 +142,7 @@ impl MasterPassword<Init> {
         colour::green_ln!("Pass initialised successfully");
 
         Ok(MasterPassword {
-            master_pass: Some(password.as_bytes().to_vec()),
+            master_pass: Some(password.as_ref().to_vec()),
             hash: Some(hashed_password),
             state: PhantomData::<Verified>,
         })
@@ -205,7 +208,8 @@ impl MasterPassword<Verified> {
             input_master_pass().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
         // Storing old master pass for later
-        let old_master = self.clone();
+        // TODO: self.get_pass_str();
+        let old_master = self.master_pass.clone();
 
         // Setting up new master in self
         let hash = password_hash(&prompt_new_master)
@@ -217,7 +221,7 @@ impl MasterPassword<Verified> {
         // Re-encrypting contents over new master pass
 
         if PASS_ENTRY_STORE.exists() {
-            self.re_encrypt_contents(old_master)
+            self.re_encrypt_contents(old_master.unwrap())
                 .expect("Unable to re-encrypt entries");
         }
 
@@ -233,9 +237,14 @@ impl MasterPassword<Verified> {
     }
 
     ///
-    pub fn re_encrypt_contents(&self, old_master: MasterPassword<Verified>) -> anyhow::Result<()> {
+    pub fn re_encrypt_contents<P>(&self, old_master_password: P) -> anyhow::Result<()>
+    where
+        P: AsRef<[u8]>,
+    {
         // Load all entries form db by old master
-        let mut storage = PasswordStore::load(PASS_ENTRY_STORE.to_path_buf(), old_master)?;
+        //
+        let master_pass = MasterPassword::from_pass(old_master_password)?;
+        let mut storage = PasswordStore::load(PASS_ENTRY_STORE.to_path_buf(), master_pass)?;
 
         // Changing master password
         storage.master_password = self.clone();
