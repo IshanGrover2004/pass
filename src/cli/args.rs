@@ -2,16 +2,18 @@ use std::borrow::BorrowMut;
 
 use clap::{Args, Parser, Subcommand};
 use inquire::validator::Validation;
-use inquire::{Confirm, Password, PasswordDisplayMode};
+use inquire::{Password, PasswordDisplayMode};
 
 use crate::pass::master::{MasterPassword, Verified};
 use crate::pass::store::get_table;
-use crate::pass::util::{ask_for_confirm, generate_random_password, prompt_string};
+use crate::pass::util::{ask_for_confirm, generate_random_password, prompt_string, PASS_DIR_PATH};
 use crate::pass::{
     entry::PasswordEntry,
     store::{PasswordStore, PasswordStoreError, PASS_ENTRY_STORE},
     util::copy_to_clipboard,
 };
+
+use super::CliError;
 
 // TODO: pass gen -Uuds 2 shows vague error
 
@@ -54,6 +56,9 @@ pub enum Command {
 
     /// Generate a password
     Gen(GenArgs),
+
+    /// Reset features for pass directory
+    Reset(ResetArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -324,5 +329,44 @@ impl GenArgs {
                 Err(_) => colour::e_red_ln!("Error in creating passwords"),
             }
         }
+    }
+}
+
+#[derive(Args, Debug)]
+pub struct ResetArgs {
+    /// Flag to remove whole "pass" directory from db
+    #[arg(long, default_value_t = false)]
+    hard: bool,
+
+    // TODO: Add option to take backup somewhere before reset if --backup flag passed
+    #[arg(long)]
+    backup: bool,
+}
+
+impl ResetArgs {
+    pub fn reset(&self) -> Result<(), CliError> {
+        if self.hard {
+            if ask_for_confirm("Do you really want to remove whole 'pass' directory?")
+                .map_err(|_| CliError::UnableToReadFromConsole)?
+            {
+                std::fs::remove_dir_all(PASS_DIR_PATH.as_path())
+                    .map_err(CliError::UnableToResetPassDir)?;
+                println!("`pass` directory has been removed");
+            } else {
+                println!("Reset command has been aborted");
+            }
+        } else {
+            if ask_for_confirm("Do you really want to reset all password entry?")
+                .map_err(|_| CliError::UnableToReadFromConsole)?
+            {
+                std::fs::remove_file(PASS_ENTRY_STORE.as_path())
+                    .map_err(CliError::UnableToResetPassDir)?;
+                println!("All password entry has been reset");
+            } else {
+                println!("Reset command has been aborted");
+            }
+        }
+
+        Ok(())
     }
 }
