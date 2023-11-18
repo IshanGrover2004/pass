@@ -54,7 +54,7 @@ pub enum PasswordStoreError {
     NoEntryAvailable,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct PasswordStore {
     pub(crate) passwords: Vec<PasswordEntry>,
     pub(crate) master_password: MasterPassword<Verified>,
@@ -65,7 +65,7 @@ impl SerdeEncryptSharedKey for PasswordStore {
 }
 
 impl PasswordStore {
-    /// Extract the data from database(if exist) & store in PasswordStore
+    /// Extract the data from database(if exist) & store in [PasswordStore]
     pub fn new(
         file_path: impl AsRef<Path>,
         master_password: MasterPassword<Verified>,
@@ -164,45 +164,52 @@ impl PasswordStore {
 
     // Remove entries from existing entries
     pub fn remove(&mut self, _t: Vec<PasswordEntry>) {
-        // TODO: If no entry exist of that service
         unimplemented!();
     }
 
-    pub fn get() -> Vec<PasswordEntry> {
-        unimplemented!();
+    // Match service
+    pub fn get(&self, service: String) -> Vec<PasswordEntry> {
+        self.passwords
+            .clone()
+            .into_iter()
+            .filter(|entry| entry.service.to_lowercase() == service.to_lowercase())
+            .collect::<Vec<PasswordEntry>>()
     }
 
     pub fn fuzzy_find() -> Vec<PasswordEntry> {
         unimplemented!();
     }
+}
 
-    /// Table
-    pub fn get_table(&self) -> Result<TableDisplay, PasswordStoreError> {
-        if self.passwords.is_empty() {
-            return Err(PasswordStoreError::NoEntryAvailable);
-        }
-        Ok(self
-            .passwords
-            .iter()
-            .enumerate()
-            .map(|(index, data)| {
-                let mut table = data.table();
-                let serial = (index + 1).to_string().cell().justify(Justify::Center);
-                table.insert(0, serial);
-                table
-            })
-            .collect::<Vec<Vec<_>>>()
-            .table()
-            .title(vec![
-                "Serial no.".cell().bold(true),
-                "Service".cell().bold(true),
-                "Username".cell().bold(true),
-                "Notes".cell().bold(true),
-            ])
-            .bold(true)
-            .display()
-            .expect("Unable to draw table"))
+/// Provide display table having password entry
+pub fn get_table(
+    passwords: impl AsRef<[PasswordEntry]>,
+) -> Result<TableDisplay, PasswordStoreError> {
+    if passwords.as_ref().is_empty() {
+        return Err(PasswordStoreError::NoEntryAvailable);
     }
+
+    Ok(passwords
+        .as_ref()
+        .iter()
+        .enumerate()
+        .map(|(index, data)| {
+            let mut table = data.table();
+            let serial = (index + 1).to_string().cell().justify(Justify::Center);
+            table.insert(0, serial);
+            table
+        })
+        .collect::<Vec<Vec<_>>>()
+        .table()
+        .title(vec![
+            "Serial no.".cell().bold(true),
+            "Service".cell().bold(true),
+            "Username".cell().bold(true),
+            "Notes".cell().bold(true),
+        ])
+        .bold(true)
+        .display()
+        .expect("Unable to draw table"))
 }
 
 #[cfg(test)]

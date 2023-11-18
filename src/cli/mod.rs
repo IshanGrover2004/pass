@@ -96,7 +96,7 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             unimplemented!();
         }
 
-        Some(Command::List(_)) => {
+        Some(Command::List) => {
             let mut master = master_password.load()?;
 
             for attempt in 0..3 {
@@ -125,8 +125,33 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             }
         }
 
-        Some(Command::Get(_args)) => {
-            unimplemented!();
+        Some(Command::Get(args)) => {
+            let mut master = master_password.load()?;
+
+            for attempt in 0..3 {
+                master.borrow_mut().prompt()?;
+
+                match master.verify() {
+                    Ok(Some(verified)) => {
+                        args.get_entries(verified)?;
+                        break;
+                    }
+                    Ok(None) => {
+                        if attempt < 2 {
+                            colour::e_red_ln!(
+                                "Incorrect master password, retry ({}):",
+                                2 - attempt
+                            );
+                        } else {
+                            colour::e_red_ln!("Wrong master password");
+                        }
+                    }
+                    Err(e) => {
+                        e_red_ln!("Unable to add password due to: {}", e.to_string());
+                        break;
+                    }
+                };
+            }
         }
 
         Some(Command::Gen(args)) => {

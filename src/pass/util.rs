@@ -1,4 +1,5 @@
 use clipboard::{ClipboardContext, ClipboardProvider};
+use colour::e_prnt_ln;
 use once_cell::sync::Lazy;
 use ring::rand::{SecureRandom, SystemRandom};
 
@@ -6,7 +7,7 @@ use inquire::{validator::Validation, PasswordDisplayMode, Text};
 type InquirePassword<'a> = inquire::Password<'a>;
 
 // Making Base directories by xdg config
-pub(crate) static APP_NAME: &str = ".pass";
+pub(crate) static APP_NAME: &str = "pass";
 
 pub(crate) static XDG_BASE: Lazy<xdg::BaseDirectories> = Lazy::new(|| {
     xdg::BaseDirectories::with_prefix(APP_NAME).expect("Failed to initialised XDG BaseDirectories")
@@ -98,21 +99,23 @@ pub fn prompt_string(message: impl AsRef<str>) -> anyhow::Result<Option<String>>
 
 // Generate random password of given length
 pub fn generate_random_password(length: u8) -> impl AsRef<str> {
-    use rand::Rng;
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
-                        abcdefghijklmnopqrstuvwxyz\
-                        0123456789)(*&^%$#@!~";
-    let password_len: u8 = length;
-    let mut rng = rand::thread_rng();
+    if length < 3 {
+        e_prnt_ln!("Password length should be more than 3");
+    }
 
-    let password: String = (0..password_len)
-        .map(|_| {
-            let idx = rng.gen_range(0..CHARSET.len());
-            CHARSET[idx] as char
-        })
-        .collect();
+    passwords::PasswordGenerator::new()
+        .length(length as usize)
+        .uppercase_letters(true)
+        .symbols(false)
+        .strict(true)
+        .generate_one()
+        .expect("Unble to create random password")
+}
 
-    password
+pub fn ask_for_confirm(message: impl AsRef<str>) -> Result<bool, inquire::InquireError> {
+    inquire::Confirm::new(message.as_ref())
+        .with_default(true)
+        .prompt()
 }
 
 // Set content to clipboard
