@@ -5,7 +5,8 @@ use inquire::validator::Validation;
 use inquire::{Confirm, Password, PasswordDisplayMode};
 
 use crate::pass::master::{MasterPassword, Verified};
-use crate::pass::util::{generate_random_password, prompt_string};
+use crate::pass::store::get_table;
+use crate::pass::util::{ask_for_confirm, generate_random_password, prompt_string};
 use crate::pass::{
     entry::PasswordEntry,
     store::{PasswordStore, PasswordStoreError, PASS_ENTRY_STORE},
@@ -46,7 +47,7 @@ pub enum Command {
     Update(UpdateArgs),
 
     /// List all made password
-    List(ListArgs),
+    List,
 
     /// Get a password
     Get(GetArgs),
@@ -132,10 +133,7 @@ impl AddArgs {
     }
 
     fn set_password(&mut self) -> anyhow::Result<()> {
-        let choice = Confirm::new("Generate random password?")
-            .with_default(true)
-            .prompt()
-            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+        let choice = ask_for_confirm("Generate random password?")?;
 
         self.borrow_mut().password = match choice {
             true => Some(generate_random_password(12).as_ref().to_string()),
@@ -165,25 +163,20 @@ impl AddArgs {
 
 #[derive(Args)]
 pub struct RemoveArgs {
-    /// Username/email of the account
-    // #[clap(short = 'n', long = "name")]
-    username: String,
+    /// Service name for identify any password
+    service: String,
 }
 
 #[derive(Args)]
 pub struct UpdateArgs {
-    /// Username/email of the account
-    // #[clap(short = 'n', long = "name")]
-    username: String,
+    /// Service name for identify any password
+    service: String,
 }
-
-#[derive(Args)]
-pub struct ListArgs {}
 
 pub fn list_entries(master_password: MasterPassword<Verified>) -> anyhow::Result<()> {
     let manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
 
-    match manager.get_table() {
+    match get_table(manager.passwords) {
         Ok(table) => {
             println!("{table}");
         }
@@ -200,9 +193,62 @@ pub fn list_entries(master_password: MasterPassword<Verified>) -> anyhow::Result
 
 #[derive(Args)]
 pub struct GetArgs {
-    /// Username/email of the account
-    // #[clap(short = 'n', long = "name")]
-    service_name: String,
+    /// Service name to identify any password
+    service: String,
+}
+
+impl GetArgs {
+    pub fn get_entries(&self, master_password: MasterPassword<Verified>) -> anyhow::Result<()> {
+        /*
+         * 1. Check entry exist by service or not
+         * 2. If 1 entry found => print
+         *     If more entry found => print username of entry and prompt which entry to get.
+         *     If no entry found => Give suggestion of fuzzy_find search
+         * */
+
+        let manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
+
+        let result = manager.get(self.service.clone());
+        match result.is_empty() {
+            true => {
+                colour::e_red_ln!("No entry found for {}", self.service);
+
+                // let fuzzy_choice = ask_for_confirm("Do you want to fuzzy find it? ");
+
+                /* TODO: Fuzzy search the list if no entry found
+                 * get list of entries through fuzzy search
+                 * then print that you got "n" no. of response "do you want to show the list?"
+                 * show the list then and ask what password entry they want to access */
+            }
+            false => {
+                colour::green_ln!("{} entry found", result.len());
+
+                // TODO: ASK user to whether show password from any found entry
+
+                if result.len() == 1 {
+                    let table = get_table(result)?;
+                    println!("{}", table);
+                } else {
+                    let confirm = ask_for_confirm(format!(
+                        "Do you want to print all {} found entries?",
+                        result.len()
+                    ))?;
+
+                    match confirm {
+                        true => {
+                            let table = get_table(result)?;
+                            println!("{}", table);
+                        }
+                        false => {
+                            colour::e_blue_ln!("Not showing entries")
+                        }
+                    }
+                }
+            }
+        };
+
+        Ok(())
+    }
 }
 
 #[derive(Args, Debug)]

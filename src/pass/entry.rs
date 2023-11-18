@@ -19,7 +19,7 @@ impl Password {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct PasswordEntry {
     /// Name of service/email/website for which password is stored
     pub(crate) service: String,

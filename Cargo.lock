@@ -823,7 +823,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pass"
+name = "pass_rs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
