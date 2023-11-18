@@ -12,12 +12,14 @@ use serde_encrypt::{
 use crate::pass::master::{MasterPassword, Verified};
 use crate::pass::{entry::PasswordEntry, util::XDG_BASE};
 
+// $HOME/.local/state/pass/passwords.db
 pub static PASS_ENTRY_STORE: Lazy<std::path::PathBuf> = Lazy::new(|| {
     XDG_BASE
         .place_state_file("passwords.db")
         .expect("Unable to place passwords.db file in state")
 });
 
+// $HOME/.local/state/pass/testing.db
 pub static TESTING_PASS: Lazy<std::path::PathBuf> = Lazy::new(|| {
     XDG_BASE
         .place_state_file("testing.db")

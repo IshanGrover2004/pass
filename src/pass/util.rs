@@ -8,12 +8,12 @@ type InquirePassword<'a> = inquire::Password<'a>;
 
 // Making Base directories by xdg config
 pub(crate) static APP_NAME: &str = "pass";
-
 pub(crate) static XDG_BASE: Lazy<xdg::BaseDirectories> = Lazy::new(|| {
     xdg::BaseDirectories::with_prefix(APP_NAME).expect("Failed to initialised XDG BaseDirectories")
 });
 
-pub(crate) static PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BASE.get_state_home()); // $HOME/.local/state/.pass
+// $HOME/.local/state/pass
+pub(crate) static PASS_DIR_PATH: Lazy<std::path::PathBuf> = Lazy::new(|| XDG_BASE.get_state_home());
 
 #[derive(Debug, thiserror::Error)]
 pub enum UtilError {
