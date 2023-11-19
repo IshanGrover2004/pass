@@ -178,8 +178,18 @@ impl PasswordStore {
             .collect::<Vec<PasswordEntry>>()
     }
 
-    pub fn fuzzy_find() -> Vec<PasswordEntry> {
-        unimplemented!();
+    pub fn fuzzy_find(&self, service: String) -> Vec<PasswordEntry> {
+        self.passwords
+            .clone()
+            .into_iter()
+            .filter(|entry| {
+                if rust_fuzzy_search::fuzzy_compare(&entry.service, &service) >= 0.5 {
+                    true
+                } else {
+                    false
+                }
+            })
+            .collect::<Vec<PasswordEntry>>()
     }
 }
 

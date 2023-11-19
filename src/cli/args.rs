@@ -51,8 +51,11 @@ pub enum Command {
     /// List all made password
     List,
 
-    /// Get a password
+    /// Get a password entry
     Get(GetArgs),
+
+    /// Fuzzy search passsword entries
+    Search(SearchArgs),
 
     /// Generate a password
     Gen(GenArgs),
@@ -249,6 +252,33 @@ impl GetArgs {
                         }
                     }
                 }
+            }
+        };
+
+        Ok(())
+    }
+}
+
+#[derive(Args, Debug)]
+pub struct SearchArgs {
+    service: String,
+}
+
+impl SearchArgs {
+    pub fn fuzzy_search(&self, master_password: MasterPassword<Verified>) -> anyhow::Result<()> {
+        let manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
+
+        let result = manager.fuzzy_find(self.service.clone());
+        match result.is_empty() {
+            true => {
+                colour::e_red_ln!("No entry exist related to '{}'", self.service);
+            }
+            false => {
+                // TODO: Make methods like fuzzy_find_by_username & fuzzy_find_by_service
+                colour::green_ln!("Your search results: ");
+                result.iter().enumerate().for_each(|(idx, entry)| {
+                    colour::green_ln!("{}. {}", idx + 1, entry.service);
+                });
             }
         };
 
