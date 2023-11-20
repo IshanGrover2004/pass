@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use std::path::Path;
 
 use cli_table::format::Justify;
@@ -164,13 +165,29 @@ impl PasswordStore {
         })
     }
 
-    // Remove entries from existing entries
-    pub fn remove(&mut self, _t: Vec<PasswordEntry>) {
-        unimplemented!();
+    /// Remove entries from existing entries
+    pub fn remove(&mut self, entries: Vec<PasswordEntry>) -> Result<(), PasswordStoreError> {
+        self.borrow_mut()
+            .passwords
+            .retain(|entry| !entries.contains(entry));
+
+        self.dump(PASS_ENTRY_STORE.as_path())?;
+
+        colour::green_ln!("Removed {} password entry", entries.len());
+        entries.iter().enumerate().for_each(|(idx, entry)| {
+            colour::green_ln!(
+                "{}. Service: {}, Username: {}",
+                idx + 1,
+                entry.service,
+                entry.username.clone().unwrap_or("None".to_string())
+            );
+        });
+
+        Ok(())
     }
 
-    // Match service
-    pub fn get(&self, service: String) -> Vec<PasswordEntry> {
+    /// Get [PasswordEntry] by matching service
+    pub fn get(&self, service: &String) -> Vec<PasswordEntry> {
         self.passwords
             .clone()
             .into_iter()
@@ -178,6 +195,7 @@ impl PasswordStore {
             .collect::<Vec<PasswordEntry>>()
     }
 
+    /// Fuzzy find & get [PasswordEntry] by service
     pub fn fuzzy_find(&self, service: String) -> Vec<PasswordEntry> {
         self.passwords
             .clone()

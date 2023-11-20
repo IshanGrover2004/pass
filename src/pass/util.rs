@@ -97,6 +97,21 @@ pub fn prompt_string(message: impl AsRef<str>) -> anyhow::Result<Option<String>>
         .map_err(|_| UtilError::UnableToReadFromConsole)?)
 }
 
+pub fn prompt_string_without_skip(message: impl AsRef<str>) -> anyhow::Result<String> {
+    Ok(Text::new(message.as_ref())
+        .with_formatter(&|i| i.to_string())
+        .with_help_message("Press <Esc> to skip the username")
+        .with_validator(|input: &str| {
+            if input.is_empty() {
+                Ok(Validation::Invalid("To skip, press <ESC>".into()))
+            } else {
+                Ok(Validation::Valid)
+            }
+        })
+        .prompt()
+        .map_err(|_| UtilError::UnableToReadFromConsole)?)
+}
+
 // Generate random password of given length
 pub fn generate_random_password(length: u8) -> impl AsRef<str> {
     if length < 3 {
