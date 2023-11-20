@@ -175,6 +175,49 @@ pub struct RemoveArgs {
     service: String,
 }
 
+impl RemoveArgs {
+    pub fn remove_entries(
+        &mut self,
+        master_password: MasterPassword<Verified>,
+    ) -> anyhow::Result<()> {
+        let mut manager =
+            PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password.to_owned())?;
+
+        let found_entry = manager.get(&self.service);
+
+        if found_entry.len() == 0 {
+            // TODO: Ask user to apply fuzzy search to remove
+            colour::e_red_ln!(
+                "Can't find matching entry with service name '{}'",
+                self.service
+            );
+        } else if found_entry.len() == 1 {
+            colour::blue_ln!("Found matching service name");
+
+            match ask_for_confirm("Confirm to remove this entry?") {
+                Ok(true) => manager.remove(found_entry)?,
+                Err(_) | Ok(false) => {
+                    colour::e_red_ln!("Aborted!!");
+                }
+            };
+        } else {
+            colour::green_ln!("Found {} matching entries", found_entry.len());
+
+            // TODO: Selection of entry to remove is done using inquire::Select
+            match ask_for_confirm("Confirm to remove these entry?") {
+                Ok(true) => manager.remove(found_entry)?,
+                Err(_) | Ok(false) => {
+                    colour::e_red_ln!("Aborted!!");
+                }
+            };
+        }
+
+        Ok(())
+    }
+
+    // fn take_consent_and_remove() {}
+}
+
 #[derive(Args)]
 pub struct UpdateArgs {
     /// Service name for identify any password
@@ -216,7 +259,7 @@ impl GetArgs {
 
         let manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
 
-        let result = manager.get(self.service.clone());
+        let result = manager.get(&self.service);
         match result.is_empty() {
             true => {
                 colour::e_red_ln!("No entry found for {}", self.service);
@@ -224,9 +267,8 @@ impl GetArgs {
                 // let fuzzy_choice = ask_for_confirm("Do you want to fuzzy find it? ");
 
                 /* TODO: Fuzzy search the list if no entry found
-                 * get list of entries through fuzzy search
-                 * then print that you got "n" no. of response "do you want to show the list?"
-                 * show the list then and ask what password entry they want to access */
+                 * then print that you got "n" no. of response "do you want to show the list?".
+                 * Show the result then and ask what password entry they want to access */
             }
             false => {
                 colour::green_ln!("{} entry found", result.len());

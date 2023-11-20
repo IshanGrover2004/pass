@@ -94,8 +94,33 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             }
         }
 
-        Some(Command::Remove(_args)) => {
-            unimplemented!();
+        Some(Command::Remove(mut arg)) => {
+            let mut master = master_password.load()?;
+
+            for attempt in 0..3 {
+                master.borrow_mut().prompt()?;
+
+                match master.verify() {
+                    Ok(Some(verified)) => {
+                        arg.remove_entries(verified)?;
+                        break;
+                    }
+                    Ok(None) => {
+                        if attempt < 2 {
+                            colour::e_red_ln!(
+                                "Incorrect master password, retry ({}):",
+                                2 - attempt
+                            );
+                        } else {
+                            colour::e_red_ln!("Wrong master password");
+                        }
+                    }
+                    Err(e) => {
+                        e_red_ln!("Unable to add password due to: {}", e.to_string());
+                        break;
+                    }
+                };
+            }
         }
 
         Some(Command::Update(_args)) => {
