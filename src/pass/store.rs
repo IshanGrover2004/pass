@@ -2,7 +2,7 @@ use std::borrow::BorrowMut;
 use std::path::Path;
 
 use cli_table::format::Justify;
-use cli_table::{Cell, Style, Table, TableDisplay};
+use cli_table::{Cell, Style, Table};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_encrypt::{
@@ -187,11 +187,11 @@ impl PasswordStore {
     }
 
     /// Get [PasswordEntry] by matching service
-    pub fn get(&self, service: &String) -> Vec<PasswordEntry> {
+    pub fn get(&self, service: impl AsRef<str>) -> Vec<PasswordEntry> {
         self.passwords
             .clone()
             .into_iter()
-            .filter(|entry| entry.service.to_lowercase() == service.to_lowercase())
+            .filter(|entry| entry.service.to_lowercase() == service.as_ref().to_lowercase())
             .collect::<Vec<PasswordEntry>>()
     }
 
@@ -200,26 +200,22 @@ impl PasswordStore {
         self.passwords
             .clone()
             .into_iter()
-            .filter(|entry| {
-                if rust_fuzzy_search::fuzzy_compare(&entry.service, &service) >= 0.5 {
-                    true
-                } else {
-                    false
-                }
-            })
+            .filter(|entry| rust_fuzzy_search::fuzzy_compare(&entry.service, &service) >= 0.5)
             .collect::<Vec<PasswordEntry>>()
+    }
+
+    pub fn change_master(&mut self, master: MasterPassword<Verified>) {
+        self.master_password = master;
     }
 }
 
 /// Provide display table having password entry
-pub fn get_table(
-    passwords: impl AsRef<[PasswordEntry]>,
-) -> Result<TableDisplay, PasswordStoreError> {
+pub fn print_table(passwords: impl AsRef<[PasswordEntry]>) {
     if passwords.as_ref().is_empty() {
-        return Err(PasswordStoreError::NoEntryAvailable);
+        colour::green_ln!("No entry available");
     }
 
-    Ok(passwords
+    let table = passwords
         .as_ref()
         .iter()
         .enumerate()
@@ -237,9 +233,9 @@ pub fn get_table(
             "Username".cell().bold(true),
             "Notes".cell().bold(true),
         ])
-        .bold(true)
-        .display()
-        .expect("Unable to draw table"))
+        .bold(true);
+
+    println!("{}", table.display().expect("Unable to draw table"));
 }
 
 #[cfg(test)]

@@ -5,7 +5,7 @@ use inquire::validator::Validation;
 use inquire::{Password, PasswordDisplayMode};
 
 use crate::pass::master::{MasterPassword, Verified};
-use crate::pass::store::get_table;
+use crate::pass::store::print_table;
 use crate::pass::util::{ask_for_confirm, generate_random_password, prompt_string, PASS_DIR_PATH};
 use crate::pass::{
     entry::PasswordEntry,
@@ -185,7 +185,7 @@ impl RemoveArgs {
 
         let found_entry = manager.get(&self.service);
 
-        if found_entry.len() == 0 {
+        if found_entry.is_empty() {
             // TODO: Ask user to apply fuzzy search to remove
             colour::e_red_ln!(
                 "Can't find matching entry with service name '{}'",
@@ -227,17 +227,7 @@ pub struct UpdateArgs {
 pub fn list_entries(master_password: MasterPassword<Verified>) -> anyhow::Result<()> {
     let manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
 
-    match get_table(manager.passwords) {
-        Ok(table) => {
-            println!("{table}");
-        }
-        Err(PasswordStoreError::NoEntryAvailable) => {
-            colour::e_red_ln!("No entry available");
-        }
-        Err(error) => {
-            return Err(error.into());
-        }
-    };
+    print_table(manager.passwords);
 
     Ok(())
 }
@@ -276,8 +266,7 @@ impl GetArgs {
                 // TODO: ASK user to whether show password from any found entry
 
                 if result.len() == 1 {
-                    let table = get_table(result)?;
-                    println!("{}", table);
+                    print_table(result);
                 } else {
                     let confirm = ask_for_confirm(format!(
                         "Do you want to print all {} found entries?",
@@ -286,8 +275,7 @@ impl GetArgs {
 
                     match confirm {
                         true => {
-                            let table = get_table(result)?;
-                            println!("{}", table);
+                            print_table(result);
                         }
                         false => {
                             colour::e_blue_ln!("Not showing entries")
@@ -358,48 +346,67 @@ pub struct GenArgs {
 impl GenArgs {
     /// Generate random password based on flags
     pub fn generate_password(self) {
+        if self.length < 4 {
+            colour::e_red_ln!("Password length must be greater than or equal to 4");
+            return;
+        }
+
         // If no flags is given then generate a password including Uppercase, lowercase & digits
-        let password_generator = if self.digits || self.lowercase || self.uppercase || self.symbols
-        {
-            passwords::PasswordGenerator::new()
+        let password_generator = self.generator();
+
+        match self.count > 1 {
+            true => Self::generate_multiple(self.count, password_generator),
+            false => Self::generate_one(password_generator),
+        };
+    }
+
+    fn generate_one(password_generator: passwords::PasswordGenerator) {
+        match password_generator.generate_one() {
+            Ok(password) => {
+                colour::yellow_ln!("{password}");
+                match copy_to_clipboard(password) {
+                    Ok(_) => {
+                        colour::green_ln!("Password copied to clipboard");
+                    }
+                    Err(_) => {
+                        colour::e_red_ln!("Unable to copy password");
+                    }
+                }
+            }
+            Err(_) => {
+                colour::e_red_ln!("Error in creating passwords")
+            }
+        }
+    }
+
+    fn generate_multiple(count: usize, password_generator: passwords::PasswordGenerator) {
+        match password_generator.generate(count) {
+            Ok(passwords) => {
+                for password in passwords {
+                    colour::yellow_ln!("{password}");
+                }
+            }
+            Err(_) => {
+                colour::e_red_ln!("Error in creating passwords")
+            }
+        }
+    }
+
+    fn generator(&self) -> passwords::PasswordGenerator {
+        match self.digits || self.lowercase || self.uppercase || self.symbols {
+            true => passwords::PasswordGenerator::new()
                 .length(self.length)
                 .lowercase_letters(self.lowercase)
                 .uppercase_letters(self.uppercase)
                 .numbers(self.digits)
                 .symbols(self.symbols)
-                .strict(true)
-        } else {
-            passwords::PasswordGenerator::new()
+                .strict(true),
+
+            false => passwords::PasswordGenerator::new()
                 .length(self.length)
                 .uppercase_letters(true)
                 .symbols(false)
-                .strict(true)
-        };
-
-        if self.count > 1 {
-            match password_generator.generate(self.count) {
-                Ok(passwords) => {
-                    for password in passwords {
-                        colour::yellow_ln!("{password}");
-                    }
-                }
-                Err(_) => colour::e_red_ln!("Error in creating passwords"),
-            }
-        } else {
-            match password_generator.generate_one() {
-                Ok(password) => {
-                    colour::yellow_ln!("{password}");
-                    match copy_to_clipboard(password) {
-                        Ok(_) => {
-                            colour::green_ln!("Password copied to clipboard");
-                        }
-                        Err(_) => {
-                            colour::e_red_ln!("Unable to copy password");
-                        }
-                    }
-                }
-                Err(_) => colour::e_red_ln!("Error in creating passwords"),
-            }
+                .strict(true),
         }
     }
 }
@@ -418,24 +425,46 @@ pub struct ResetArgs {
 impl ResetArgs {
     pub fn reset(&self) -> Result<(), CliError> {
         if self.hard {
-            if ask_for_confirm("Do you really want to remove whole 'pass' directory?")
-                .map_err(|_| CliError::UnableToReadFromConsole)?
-            {
+            Self::reset_hard()?;
+        } else {
+            Self::reset_passwords()?;
+        }
+
+        Ok(())
+    }
+
+    fn reset_hard() -> Result<(), CliError> {
+        let confirm_for_removal =
+            ask_for_confirm("Do you really want to remove whole 'pass' directory?")
+                .map_err(|_| CliError::UnableToReadFromConsole)?;
+
+        match confirm_for_removal {
+            true => {
                 std::fs::remove_dir_all(PASS_DIR_PATH.as_path())
                     .map_err(CliError::UnableToResetPassDir)?;
-                println!("`pass` directory has been removed");
-            } else {
-                println!("Reset command has been aborted");
+                colour::green_ln!("`pass` directory has been removed");
             }
-        } else {
-            if ask_for_confirm("Do you really want to reset all password entry?")
-                .map_err(|_| CliError::UnableToReadFromConsole)?
-            {
+            false => {
+                colour::e_red_ln!("Reset command has been aborted");
+            }
+        };
+
+        Ok(())
+    }
+
+    fn reset_passwords() -> Result<(), CliError> {
+        let confirm_for_removal =
+            ask_for_confirm("Do you really want to reset all password entry?")
+                .map_err(|_| CliError::UnableToReadFromConsole)?;
+
+        match confirm_for_removal {
+            true => {
                 std::fs::remove_file(PASS_ENTRY_STORE.as_path())
                     .map_err(CliError::UnableToResetPassDir)?;
-                println!("All password entry has been reset");
-            } else {
-                println!("Reset command has been aborted");
+                colour::green_ln!("All password entry has been reset");
+            }
+            false => {
+                colour::e_red_ln!("Aborted!!");
             }
         }
 

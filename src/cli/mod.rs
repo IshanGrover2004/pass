@@ -35,7 +35,6 @@ pub enum CliError {
 
 // Run the CLI
 pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
-    // Parsing the command line arguments into Cli struct
     let args = Cli::parse();
 
     match args.command {
@@ -45,31 +44,46 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
                     colour::green_ln!("Pass already initialised!!");
                 }
                 false => {
-                    master_password.init()?;
+                    master_password.initialise()?;
                 }
             };
         }
 
         Some(Command::ChangeMaster) => {
-            // Initialises master password
             let mut master = master_password.load()?;
 
-            // Prompt and set master password
-            master.prompt()?;
+            for attempt in 0..3 {
+                master.prompt()?;
 
-            // Change state to verified
-            // TODO: Check if password is wrong and handle the case
-            let mut unlocked = master.verify()?.unwrap();
-
-            // Change the master-pass and store it in db
-            unlocked.change()?;
+                match master.verify() {
+                    Ok(Some(mut verified)) => {
+                        // Change the master-pass and store it in db
+                        verified.change()?;
+                        break;
+                    }
+                    Ok(None) => {
+                        if attempt < 2 {
+                            colour::e_red_ln!(
+                                "Incorrect master password, retry ({}):",
+                                2 - attempt
+                            );
+                        } else {
+                            colour::e_red_ln!("Wrong master password");
+                        }
+                    }
+                    Err(e) => {
+                        e_red_ln!("Unable to add password due to: {}", e.to_string());
+                        break;
+                    }
+                };
+            }
         }
 
         Some(Command::Add(mut args)) => {
             let mut master = master_password.load()?;
 
             for attempt in 0..3 {
-                master.borrow_mut().prompt()?;
+                master.prompt()?;
 
                 match master.verify() {
                     Ok(Some(verified)) => {
