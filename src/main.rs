@@ -8,6 +8,7 @@ use pass::master::MasterPassword;
 
 fn main() -> anyhow::Result<()> {
     let master_pass = MasterPassword::new();
-    run_cli(master_pass).expect("Unable to run cli");
+    run_cli(master_pass)?;
+
     Ok(())
 }

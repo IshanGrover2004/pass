@@ -1,5 +1,6 @@
 use std::{io::Write, marker::PhantomData, num::NonZeroU32, string::FromUtf8Error};
 
+use anyhow::Context;
 use once_cell::sync::Lazy;
 use ring::pbkdf2;
 use serde::{Deserialize, Serialize};
@@ -85,41 +86,54 @@ impl Default for MasterPassword<Init> {
     }
 }
 
+impl MasterPassword {
+    pub fn dump(hash_pass: impl AsRef<str>) -> Result<(), MasterPasswordError> {
+        std::fs::write(MASTER_PASS_STORE.to_path_buf(), hash_pass.as_ref())
+            .map_err(MasterPasswordError::UnableToWriteFile)?;
+
+        Ok(())
+    }
+}
 impl MasterPassword<UnInit> {
     pub fn new() -> MasterPassword<Init> {
         MasterPassword::default()
     }
+
     pub fn create_pass_dirs() -> Result<(), MasterPasswordError> {
         std::fs::create_dir_all(PASS_DIR_PATH.to_owned())
             .map_err(MasterPasswordError::UnableToCreateDirs)
     }
 
-    // To check any pass initialised
     pub fn is_initialised() -> bool {
         MASTER_PASS_STORE.exists()
     }
 }
 
 impl MasterPassword<Init> {
+    pub fn initialise(&self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
+        MasterPassword::create_pass_dirs()?;
+
+        let master_pass =
+            input_master_pass().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+
+        colour::green_ln!("Pass initialised successfully");
+
+        MasterPassword::from_pass(master_pass)
+    }
+
     /// Convert initialised state to unverified state
     pub fn load(self) -> Result<MasterPassword<UnVerified>, MasterPasswordError> {
-        // If master password file exists, then read hashed password and set to object
-        assert!(
-            MasterPassword::is_initialised(),
-            "Password not initialised, please use `pass init`"
-        );
+        handle_master_not_initialised();
+
+        // Read hashed password from DB and set to object
         Ok(MasterPassword {
-            hash: Some(self.get_hash_from_db()?),
+            hash: Some(self.get_master_hash_from_db()?),
             master_pass: None,
             state: PhantomData::<UnVerified>,
         })
     }
 
-    pub fn init(self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
-        self.generate_new_masterpass()
-    }
-
-    fn get_hash_from_db(&self) -> Result<String, MasterPasswordError> {
+    fn get_master_hash_from_db(&self) -> Result<String, MasterPasswordError> {
         String::from_utf8(
             std::fs::read(MASTER_PASS_STORE.to_path_buf())
                 .map_err(MasterPasswordError::UnableToRead)?,
@@ -127,34 +141,22 @@ impl MasterPassword<Init> {
         .map_err(MasterPasswordError::UnableToConvert)
     }
 
+    /// Create a verified [MasterPassword] and set master & its hash in it
     pub fn from_pass<P>(password: P) -> Result<MasterPassword<Verified>, MasterPasswordError>
     where
         P: AsRef<[u8]>,
     {
-        // Hashing prompted master password
         let hashed_password = password_hash(&password)
             .map_err(|_| MasterPasswordError::BcryptError("Unable to hash".to_string()))?;
 
         // Store hashed master password
-        std::fs::write(MASTER_PASS_STORE.to_path_buf(), &hashed_password)
-            .map_err(MasterPasswordError::UnableToWriteFile)?;
-
-        colour::green_ln!("Pass initialised successfully");
+        MasterPassword::dump(&hashed_password)?;
 
         Ok(MasterPassword {
             master_pass: Some(password.as_ref().to_vec()),
             hash: Some(hashed_password),
             state: PhantomData::<Verified>,
         })
-    }
-
-    fn generate_new_masterpass(&self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
-        MasterPassword::create_pass_dirs()?;
-
-        let master_pass =
-            input_master_pass().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
-
-        MasterPassword::from_pass(master_pass)
     }
 }
 
@@ -172,14 +174,31 @@ impl MasterPassword<UnVerified> {
         Ok(())
     }
 
-    fn get_hash(&self) -> &String {
+    fn get_hash(&self) -> String {
         assert!(self.hash.is_some());
-        self.hash.as_ref().unwrap()
+        self.hash
+            .clone()
+            .expect("Unreachable: Master password hash can not be empty")
     }
 
-    fn get_pass(&self) -> &Vec<u8> {
+    fn get_pass(&self) -> Vec<u8> {
         assert!(self.master_pass.is_some());
-        self.master_pass.as_ref().unwrap()
+        self.master_pass
+            .clone()
+            .expect("Unreachable: Master password can not be empty")
+    }
+
+    pub fn get_master_str(&self) -> String {
+        assert!(self.master_pass.is_some());
+
+        let master_vec = self
+            .master_pass
+            .clone()
+            .expect("Unreachable: Master password can not be empty");
+
+        String::from_utf8(master_vec)
+            .context("Unable to convert utf8 to String")
+            .unwrap()
     }
 
     // Unlock the master password
@@ -189,11 +208,11 @@ impl MasterPassword<UnVerified> {
         let password = self.get_pass();
         let hash = self.get_hash();
 
-        bcrypt::verify(password, hash)
+        bcrypt::verify(&password, &hash)
             .map(|verification_status| {
-                verification_status.then(|| MasterPassword {
-                    master_pass: self.master_pass.clone(),
-                    hash: self.hash.clone(),
+                verification_status.then_some(MasterPassword {
+                    master_pass: Some(password),
+                    hash: Some(hash),
                     state: PhantomData::<Verified>,
                 })
             })
@@ -202,61 +221,58 @@ impl MasterPassword<UnVerified> {
 }
 
 impl MasterPassword<Verified> {
-    // To change master password
     pub fn change(&mut self) -> Result<(), MasterPasswordError> {
         let prompt_new_master =
             input_master_pass().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
         // Storing old master pass for later
-        // TODO: self.get_pass_str();
-        let old_master = self.master_pass.clone();
+        let old_master = self.get_master_str();
 
-        // Setting up new master in self
-        let hash = password_hash(&prompt_new_master)
-            .map_err(|_| MasterPasswordError::BcryptError("Unable to hash".to_string()))?;
-
-        self.master_pass = Some(prompt_new_master.as_bytes().to_vec());
-        self.hash = Some(hash.clone());
+        self.set_new_master(prompt_new_master)?;
 
         // Re-encrypting contents over new master pass
-
-        if PASS_ENTRY_STORE.exists() {
-            self.re_encrypt_contents(old_master.unwrap())
-                .expect("Unable to re-encrypt entries");
-        }
+        self.re_encrypt_contents(old_master)
+            .expect("Unable to re-encrypt entries");
 
         // Store hash of changed master pass
-        std::fs::write(MASTER_PASS_STORE.to_path_buf(), hash)
-            .map_err(MasterPasswordError::UnableToWriteFile)?;
+        MasterPassword::dump(self.get_hash())?;
         colour::green_ln!("Master password changed successfully");
-
-        // let pass = String::from("Str");
-        // let mpass = MasterPassword::from_password(pass);
 
         Ok(())
     }
 
-    ///
+    pub fn set_new_master(
+        &mut self,
+        new_master: impl AsRef<str>,
+    ) -> Result<(), MasterPasswordError> {
+        // Hash the password and set it to the self
+        let hash = password_hash(new_master.as_ref())
+            .map_err(|_| MasterPasswordError::BcryptError("Unable to hash".to_string()))?;
+
+        self.master_pass = Some(new_master.as_ref().as_bytes().to_vec());
+        self.hash = Some(hash.clone());
+        Ok(())
+    }
+
     pub fn re_encrypt_contents<P>(&self, old_master_password: P) -> anyhow::Result<()>
     where
         P: AsRef<[u8]>,
     {
-        // Load all entries form db by old master
-        //
-        let master_pass = MasterPassword::from_pass(old_master_password)?;
-        let mut storage = PasswordStore::load(PASS_ENTRY_STORE.to_path_buf(), master_pass)?;
+        if PASS_ENTRY_STORE.exists() {
+            let master_pass = MasterPassword::from_pass(old_master_password)?;
 
-        // Changing master password
-        storage.master_password = self.clone();
-        // storage.change_pass(new_pass);
+            // Load all entries form db by old master
+            let mut storage = PasswordStore::load(PASS_ENTRY_STORE.to_path_buf(), master_pass)?;
 
-        // Again encrypt entries with new pass
-        storage.dump(PASS_ENTRY_STORE.to_path_buf())?;
+            storage.change_master(self.clone());
+
+            // Again encrypt entries with new pass
+            storage.dump(PASS_ENTRY_STORE.to_path_buf())?;
+        }
 
         Ok(())
     }
 
-    /// Derive a encryption key from master password & salt
     pub fn derive_encryption_key(&self, salt: impl AsRef<[u8]>) -> [u8; 32] {
         let mut encryption_key = [0_u8; 32];
 
@@ -271,7 +287,41 @@ impl MasterPassword<Verified> {
 
         encryption_key
     }
+
+    pub fn get_master_str(&self) -> String {
+        assert!(self.master_pass.is_some());
+
+        let master_vec = self
+            .master_pass
+            .clone()
+            .expect("Unreachable: Master password can not be empty");
+
+        String::from_utf8(master_vec)
+            .context("Unable to convert utf8 to String")
+            .unwrap()
+    }
+
+    fn get_hash(&self) -> String {
+        assert!(self.hash.is_some());
+        self.hash
+            .clone()
+            .expect("Unreachable: Master password hash can not be empty")
+    }
 }
+
+pub fn handle_master_not_initialised() {
+    if !MasterPassword::is_initialised() {
+        println!("Pass is not initialised");
+        println!("Usage: pass_rs init");
+        std::process::exit(0);
+    }
+}
+
+// pub fn handle_password_not_initialised() {
+// if PasswordStore::is_passwords_initialised() {
+// ()
+// }
+// }
 
 #[cfg(test)]
 mod test {
