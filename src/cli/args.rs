@@ -98,7 +98,7 @@ impl AddArgs {
     pub fn add_entries(
         &mut self,
         master_password: &MasterPassword<Verified>,
-    ) -> Result<(), PasswordStoreError> {
+    ) -> anyhow::Result<()> {
         let mut manager =
             PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password.to_owned())?;
 
@@ -118,6 +118,8 @@ impl AddArgs {
     /// Ask for [AddArgs] variants and set it.
     fn set_params(&mut self) {
         let service = self.service.clone();
+
+        println!("");
 
         // Prompt for username & set in object
         self.username.is_none().then(|| -> anyhow::Result<()> {
@@ -306,6 +308,7 @@ impl SearchArgs {
             false => {
                 // TODO: Make methods like fuzzy_find_by_username & fuzzy_find_by_service
                 colour::green_ln!("Your search results: ");
+
                 result.iter().enumerate().for_each(|(idx, entry)| {
                     colour::green_ln!("{}. {}", idx + 1, entry.service);
                 });

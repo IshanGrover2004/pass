@@ -113,8 +113,8 @@ impl MasterPassword<Init> {
     pub fn initialise(&self) -> Result<MasterPassword<Verified>, MasterPasswordError> {
         MasterPassword::create_pass_dirs()?;
 
-        let master_pass =
-            input_master_pass().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+        let master_pass = input_master_pass("Enter master password: ")
+            .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
         colour::green_ln!("Pass initialised successfully");
 
@@ -222,8 +222,8 @@ impl MasterPassword<UnVerified> {
 
 impl MasterPassword<Verified> {
     pub fn change(&mut self) -> Result<(), MasterPasswordError> {
-        let prompt_new_master =
-            input_master_pass().map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
+        let prompt_new_master = input_master_pass("Enter new master password: ")
+            .map_err(|_| MasterPasswordError::UnableToReadFromConsole)?;
 
         // Storing old master pass for later
         let old_master = self.get_master_str();
@@ -316,12 +316,6 @@ pub fn handle_master_not_initialised() {
         std::process::exit(0);
     }
 }
-
-// pub fn handle_password_not_initialised() {
-// if PasswordStore::is_passwords_initialised() {
-// ()
-// }
-// }
 
 #[cfg(test)]
 mod test {

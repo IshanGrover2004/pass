@@ -213,6 +213,7 @@ impl PasswordStore {
 pub fn print_table(passwords: impl AsRef<[PasswordEntry]>) {
     if passwords.as_ref().is_empty() {
         colour::green_ln!("No entry available");
+        return;
     }
 
     let table = passwords

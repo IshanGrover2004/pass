@@ -6,11 +6,13 @@ use std::borrow::BorrowMut;
 use clap::Parser;
 use colour::e_red_ln;
 
-use crate::pass::master::Init;
+use crate::pass::master::{Init, UnVerified, Verified};
 use crate::{
     cli::args::{Cli, Command},
     pass::master::MasterPassword,
 };
+
+use self::args::list_entries;
 
 #[derive(Debug, thiserror::Error)]
 pub enum CliError {
@@ -52,6 +54,8 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
         Some(Command::ChangeMaster) => {
             let mut master = master_password.load()?;
 
+            // password_verification(master, |verified| verified.change())?;
+
             for attempt in 0..3 {
                 master.prompt()?;
 
@@ -79,15 +83,17 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
             }
         }
 
-        Some(Command::Add(mut args)) => {
+        Some(Command::Add(mut arg)) => {
             let mut master = master_password.load()?;
+
+            // password_verification(master, |verified| arg.add_entries(verified))?;
 
             for attempt in 0..3 {
                 master.prompt()?;
 
                 match master.verify() {
                     Ok(Some(verified)) => {
-                        args.borrow_mut().add_entries(&verified)?;
+                        arg.borrow_mut().add_entries(&verified)?;
                         break;
                     }
                     Ok(None) => {
@@ -110,6 +116,8 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
 
         Some(Command::Remove(mut arg)) => {
             let mut master = master_password.load()?;
+
+            // password_verification(master, |verified| arg.remove_entries(verified))?;
 
             for attempt in 0..3 {
                 master.borrow_mut().prompt()?;
@@ -142,90 +150,21 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
         }
 
         Some(Command::List) => {
-            let mut master = master_password.load()?;
+            let master = master_password.load()?;
 
-            for attempt in 0..3 {
-                master.borrow_mut().prompt()?;
-
-                match master.verify() {
-                    Ok(Some(verified)) => {
-                        args::list_entries(verified)?;
-                        break;
-                    }
-                    Ok(None) => {
-                        if attempt < 2 {
-                            colour::e_red_ln!(
-                                "Incorrect master password, retry ({}):",
-                                2 - attempt
-                            );
-                        } else {
-                            colour::e_red_ln!("Wrong master password");
-                        }
-                    }
-                    Err(e) => {
-                        e_red_ln!("Unable to add password due to: {}", e.to_string());
-                        break;
-                    }
-                };
-            }
+            password_verification(master, list_entries)?;
         }
 
-        Some(Command::Get(args)) => {
-            let mut master = master_password.load()?;
+        Some(Command::Get(arg)) => {
+            let master = master_password.load()?;
 
-            for attempt in 0..3 {
-                master.borrow_mut().prompt()?;
-
-                match master.verify() {
-                    Ok(Some(verified)) => {
-                        args.get_entries(verified)?;
-                        break;
-                    }
-                    Ok(None) => {
-                        if attempt < 2 {
-                            colour::e_red_ln!(
-                                "Incorrect master password, retry ({}):",
-                                2 - attempt
-                            );
-                        } else {
-                            colour::e_red_ln!("Wrong master password");
-                        }
-                    }
-                    Err(e) => {
-                        e_red_ln!("Unable to add password due to: {}", e.to_string());
-                        break;
-                    }
-                };
-            }
+            password_verification(master, |verified| arg.get_entries(verified))?;
         }
 
-        Some(Command::Search(args)) => {
-            let mut master = master_password.load()?;
+        Some(Command::Search(arg)) => {
+            let master = master_password.load()?;
 
-            for attempt in 0..3 {
-                master.borrow_mut().prompt()?;
-
-                match master.verify() {
-                    Ok(Some(verified)) => {
-                        args.fuzzy_search(verified)?;
-                        break;
-                    }
-                    Ok(None) => {
-                        if attempt < 2 {
-                            colour::e_red_ln!(
-                                "Incorrect master password, retry ({}):",
-                                2 - attempt
-                            );
-                        } else {
-                            colour::e_red_ln!("Wrong master password");
-                        }
-                    }
-                    Err(e) => {
-                        e_red_ln!("Unable to add password due to: {}", e.to_string());
-                        break;
-                    }
-                };
-            }
+            password_verification(master, |verified| arg.fuzzy_search(verified))?;
         }
 
         Some(Command::Gen(args)) => {
@@ -234,6 +173,8 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
 
         Some(Command::Reset(arg)) => {
             let mut master = master_password.load()?;
+
+            // password_verification(master, |verified| arg.reset())?;
 
             for attempt in 0..3 {
                 master.borrow_mut().prompt()?;
@@ -281,6 +222,35 @@ Type $ pass init for setting up your master password.";
             colour::white_ln!("{ABOUT_MSG}")
         }
     };
+
+    Ok(())
+}
+
+fn password_verification<F>(mut master: MasterPassword<UnVerified>, func: F) -> anyhow::Result<()>
+where
+    F: Fn(MasterPassword<Verified>) -> anyhow::Result<()>,
+{
+    for attempt in 0..3 {
+        master.borrow_mut().prompt()?;
+
+        match master.verify() {
+            Ok(Some(verified)) => {
+                func(verified)?;
+                break;
+            }
+            Ok(None) => {
+                if attempt < 2 {
+                    colour::e_red_ln!("Incorrect master password, retry ({}):", 2 - attempt);
+                } else {
+                    colour::e_red_ln!("Wrong master password");
+                }
+            }
+            Err(e) => {
+                e_red_ln!("Unable to add password due to: {}", e.to_string());
+                break;
+            }
+        };
+    }
 
     Ok(())
 }
