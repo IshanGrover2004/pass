@@ -20,7 +20,7 @@ pub enum UtilError {
     #[error("Bcrypt Error: {0}")]
     BcryptError(String),
 
-    #[error("Unable to read from console")]
+    #[error("Cannot read from console due to IO error")]
     UnableToReadFromConsole,
 }
 
@@ -38,7 +38,7 @@ pub fn password_hash(content: impl AsRef<[u8]>) -> Result<String, UtilError> {
         .map_err(|_| UtilError::BcryptError(String::from("Unable to hash password")))
 }
 
-pub fn input_master_pass() -> anyhow::Result<String> {
+pub fn input_master_pass(message: impl AsRef<str>) -> Result<String, UtilError> {
     let validator = |input: &str| {
         if !is_strong_password(input) {
             Ok(Validation::Invalid("Password is not strong enough.".into()))
@@ -47,7 +47,7 @@ pub fn input_master_pass() -> anyhow::Result<String> {
         }
     };
 
-    let password = InquirePassword::new("Enter master password: ")
+    let password = InquirePassword::new(message.as_ref())
         .with_display_toggle_enabled()
         .with_display_mode(PasswordDisplayMode::Masked)
         .with_custom_confirmation_message("Confirm master password:")
@@ -55,7 +55,8 @@ pub fn input_master_pass() -> anyhow::Result<String> {
         .with_validator(validator)
         .with_formatter(&|_| String::from("Password stored"))
         .with_help_message("Password must include => lowercase, Uppercase, digits, symbols")
-        .prompt()?;
+        .prompt()
+        .map_err(|_| UtilError::UnableToReadFromConsole)?;
 
     Ok(password)
 }
