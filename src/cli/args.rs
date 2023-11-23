@@ -1,12 +1,13 @@
 use std::borrow::BorrowMut;
 
 use clap::{Args, Parser, Subcommand};
-use inquire::validator::Validation;
-use inquire::{Password, PasswordDisplayMode};
+use inquire::{CustomType, Password, PasswordDisplayMode};
 
 use crate::pass::master::{MasterPassword, Verified};
 use crate::pass::store::print_table;
-use crate::pass::util::{ask_for_confirm, generate_random_password, prompt_string, PASS_DIR_PATH};
+use crate::pass::util::{
+    ask_for_confirm, input_number, print_pass_entry_info, prompt_string, PASS_DIR_PATH,
+};
 use crate::pass::{
     entry::PasswordEntry,
     store::{PasswordStore, PasswordStoreError, PASS_ENTRY_STORE},
@@ -14,8 +15,6 @@ use crate::pass::{
 };
 
 use super::CliError;
-
-// TODO: pass gen -Uuds 2 shows vague error
 
 // CLI Design
 #[derive(Parser)]
@@ -119,55 +118,88 @@ impl AddArgs {
     fn set_params(&mut self) {
         let service = self.service.clone();
 
-        println!("");
+        println!();
 
         // Prompt for username & set in object
-        self.username.is_none().then(|| -> anyhow::Result<()> {
-            self.borrow_mut().username = prompt_string(format!("Enter username for {}: ", service))
-                .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
-            Ok(())
-        });
+        self.username
+            .is_none()
+            .then(|| -> Result<(), PasswordStoreError> {
+                self.borrow_mut().username =
+                    prompt_string(format!("Enter username for {}: ", service))
+                        .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+                Ok(())
+            });
 
         // Prompt for password & set in object
-        self.password.is_none().then(|| -> anyhow::Result<()> {
-            self.set_password()?;
-            Ok(())
-        });
+        self.password
+            .is_none()
+            .then(|| -> Result<(), PasswordStoreError> {
+                self.set_password()?;
+                Ok(())
+            });
 
         // Prompt for notes & set in object
-        self.notes.is_none().then(|| -> anyhow::Result<()> {
-            self.borrow_mut().notes = prompt_string(format!("Enter notes for {}: ", service))
-                .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
-            Ok(())
-        });
+        self.notes
+            .is_none()
+            .then(|| -> Result<(), PasswordStoreError> {
+                self.borrow_mut().notes =
+                    prompt_string(format!("Enter notes for {}: ", service))
+                        .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+                Ok(())
+            });
     }
 
-    fn set_password(&mut self) -> anyhow::Result<()> {
-        let choice = ask_for_confirm("Generate random password?")?;
+    fn set_password(&mut self) -> Result<(), PasswordStoreError> {
+        let choice = ask_for_confirm("Generate random password?")
+            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
 
         self.borrow_mut().password = match choice {
-            true => Some(generate_random_password(12).as_ref().to_string()),
-            false => Some(
-                Password::new("Enter password: ")
-                    .with_display_toggle_enabled()
-                    .with_display_mode(PasswordDisplayMode::Masked)
-                    .with_custom_confirmation_message("Confirm password:")
-                    .with_custom_confirmation_error_message("The password don't match.")
-                    .with_validator(|input: &str| {
-                        if input.len() < 8 {
-                            Ok(Validation::Invalid(
-                                "Password must be more than 8 bytes".into(),
-                            ))
-                        } else {
-                            Ok(Validation::Valid)
-                        }
-                    })
-                    .prompt()
-                    .unwrap(),
-            ),
+            true => Some(Self::generate_random_password_with_interaction()?),
+            false => Some(Self::generate_new_password()?),
         };
 
         Ok(())
+    }
+
+    fn generate_new_password() -> Result<String, PasswordStoreError> {
+        Password::new("Enter password: ")
+            .with_display_toggle_enabled()
+            .with_display_mode(PasswordDisplayMode::Masked)
+            .with_custom_confirmation_message("Confirm password:")
+            .with_custom_confirmation_error_message("The password don't match.")
+            .prompt()
+            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)
+    }
+
+    fn generate_random_password_with_interaction() -> Result<String, PasswordStoreError> {
+        let length =
+            input_number("How long?").map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+
+        let uppercase = ask_for_confirm("Include uppercase letters?")
+            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+
+        let lowercase = ask_for_confirm("Include lowercase letters?")
+            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+
+        let digits = ask_for_confirm("Include digits?")
+            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+
+        let symbols = ask_for_confirm("Include symbols?")
+            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+
+        let gen_arg = GenArgs {
+            length,
+            count: 1,
+            uppercase,
+            lowercase,
+            digits,
+            symbols,
+        };
+
+        Ok(gen_arg
+            .generator()
+            .generate_one()
+            .expect("Unreachable code"))
     }
 }
 
@@ -182,36 +214,88 @@ impl RemoveArgs {
         &mut self,
         master_password: MasterPassword<Verified>,
     ) -> anyhow::Result<()> {
-        let mut manager =
+        let manager =
             PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password.to_owned())?;
 
         let found_entry = manager.get(&self.service);
 
         if found_entry.is_empty() {
-            // TODO: Ask user to apply fuzzy search to remove
-            colour::e_red_ln!(
-                "Can't find matching entry with service name '{}'",
-                self.service
-            );
+            self.handle_no_entry_found(manager)?;
         } else if found_entry.len() == 1 {
-            colour::blue_ln!("Found matching service name");
-
-            match ask_for_confirm("Confirm to remove this entry?") {
-                Ok(true) => manager.remove(found_entry)?,
-                Err(_) | Ok(false) => {
-                    colour::e_red_ln!("Aborted!!");
-                }
-            };
+            Self::handle_one_entry_found(manager, found_entry)?;
         } else {
-            colour::green_ln!("Found {} matching entries", found_entry.len());
+            Self::handle_multiple_entry_found(manager, found_entry)?;
+        }
 
-            // TODO: Selection of entry to remove is done using inquire::Select
-            match ask_for_confirm("Confirm to remove these entry?") {
-                Ok(true) => manager.remove(found_entry)?,
-                Err(_) | Ok(false) => {
-                    colour::e_red_ln!("Aborted!!");
-                }
-            };
+        Ok(())
+    }
+
+    fn handle_no_entry_found(&self, manager: PasswordStore) -> Result<(), PasswordStoreError> {
+        colour::e_red_ln!(
+            "Can't find matching entry with service name '{}'",
+            self.service
+        );
+
+        let fuzzy_search_choice = ask_for_confirm("Want to do fuzzy search for this?")
+            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+
+        if fuzzy_search_choice {
+            let fuzzy_search = manager.fuzzy_find(&self.service);
+            print_pass_entry_info(&fuzzy_search);
+
+            Self::remove_entry_with_choice(manager, fuzzy_search)?;
+        } else {
+            colour::e_red_ln!("there is nothing to do");
+        }
+
+        Ok(())
+    }
+
+    fn handle_one_entry_found(
+        mut manager: PasswordStore,
+        found_entry: Vec<PasswordEntry>,
+    ) -> Result<(), PasswordStoreError> {
+        colour::blue_ln!("Found matching service name");
+
+        match ask_for_confirm("Confirm to remove this entry?") {
+            Ok(true) => manager.remove(found_entry)?,
+            Err(_) | Ok(false) => {
+                colour::e_red_ln!("Aborted!!");
+            }
+        };
+
+        Ok(())
+    }
+
+    fn handle_multiple_entry_found(
+        manager: PasswordStore,
+        found_entry: Vec<PasswordEntry>,
+    ) -> Result<(), PasswordStoreError> {
+        colour::green_ln!("Found {} matching entries", found_entry.len());
+        print_pass_entry_info(&found_entry);
+
+        Self::remove_entry_with_choice(manager, found_entry)?;
+
+        Ok(())
+    }
+
+    fn remove_entry_with_choice(
+        mut manager: PasswordStore,
+        entries: Vec<PasswordEntry>,
+    ) -> Result<(), PasswordStoreError> {
+        let entry_number = CustomType::<usize>::new("Which entry to remove? (eg. 1,2,3): ")
+            .prompt()
+            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+
+        if entry_number >= 1 && entry_number <= entries.len() {
+            let entry_to_remove = vec![entries
+                .get(entry_number - 1)
+                .expect("Unreachable: Invalid entry number is already handled")
+                .clone()];
+
+            manager.remove(entry_to_remove)?;
+        } else {
+            colour::e_red_ln!("there is nothing to do");
         }
 
         Ok(())
@@ -242,13 +326,6 @@ pub struct GetArgs {
 
 impl GetArgs {
     pub fn get_entries(&self, master_password: MasterPassword<Verified>) -> anyhow::Result<()> {
-        /*
-         * 1. Check entry exist by service or not
-         * 2. If 1 entry found => print
-         *     If more entry found => print username of entry and prompt which entry to get.
-         *     If no entry found => Give suggestion of fuzzy_find search
-         * */
-
         let manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
 
         let result = manager.get(&self.service);
@@ -395,7 +472,7 @@ impl GenArgs {
         }
     }
 
-    fn generator(&self) -> passwords::PasswordGenerator {
+    pub fn generator(&self) -> passwords::PasswordGenerator {
         match self.digits || self.lowercase || self.uppercase || self.symbols {
             true => passwords::PasswordGenerator::new()
                 .length(self.length)

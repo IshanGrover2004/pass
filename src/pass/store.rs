@@ -11,6 +11,7 @@ use serde_encrypt::{
 };
 
 use crate::pass::master::{MasterPassword, Verified};
+use crate::pass::util::print_pass_entry_info;
 use crate::pass::{entry::PasswordEntry, util::XDG_BASE};
 
 // $HOME/.local/state/pass/passwords.db
@@ -32,7 +33,7 @@ pub enum PasswordStoreError {
     #[error("The master password store file is not readable due to {0}")]
     UnableToRead(std::io::Error),
 
-    #[error("Unable to read from console")]
+    #[error("Cannot read from console due to IO error")]
     UnableToReadFromConsole,
 
     #[error("Unable to create dirs for password storage")]
@@ -166,7 +167,12 @@ impl PasswordStore {
     }
 
     /// Remove entries from existing entries
-    pub fn remove(&mut self, entries: Vec<PasswordEntry>) -> Result<(), PasswordStoreError> {
+    pub fn remove(
+        &mut self,
+        entries: impl AsRef<[PasswordEntry]>,
+    ) -> Result<(), PasswordStoreError> {
+        let entries = entries.as_ref();
+
         self.borrow_mut()
             .passwords
             .retain(|entry| !entries.contains(entry));
@@ -174,14 +180,7 @@ impl PasswordStore {
         self.dump(PASS_ENTRY_STORE.as_path())?;
 
         colour::green_ln!("Removed {} password entry", entries.len());
-        entries.iter().enumerate().for_each(|(idx, entry)| {
-            colour::green_ln!(
-                "{}. Service: {}, Username: {}",
-                idx + 1,
-                entry.service,
-                entry.username.clone().unwrap_or("None".to_string())
-            );
-        });
+        print_pass_entry_info(entries);
 
         Ok(())
     }
@@ -196,11 +195,13 @@ impl PasswordStore {
     }
 
     /// Fuzzy find & get [PasswordEntry] by service
-    pub fn fuzzy_find(&self, service: String) -> Vec<PasswordEntry> {
+    pub fn fuzzy_find(&self, service: impl AsRef<str>) -> Vec<PasswordEntry> {
         self.passwords
             .clone()
             .into_iter()
-            .filter(|entry| rust_fuzzy_search::fuzzy_compare(&entry.service, &service) >= 0.5)
+            .filter(|entry| {
+                rust_fuzzy_search::fuzzy_compare(&entry.service, service.as_ref()) >= 0.5
+            })
             .collect::<Vec<PasswordEntry>>()
     }
 
