@@ -4,6 +4,8 @@ use once_cell::sync::Lazy;
 use ring::rand::{SecureRandom, SystemRandom};
 
 use inquire::{validator::Validation, PasswordDisplayMode, Text};
+
+use super::entry::PasswordEntry;
 type InquirePassword<'a> = inquire::Password<'a>;
 
 // Making Base directories by xdg config
@@ -128,10 +130,28 @@ pub fn generate_random_password(length: u8) -> impl AsRef<str> {
         .expect("Unble to create random password")
 }
 
-pub fn ask_for_confirm(message: impl AsRef<str>) -> Result<bool, inquire::InquireError> {
+pub fn ask_for_confirm(message: impl AsRef<str>) -> Result<bool, UtilError> {
     inquire::Confirm::new(message.as_ref())
         .with_default(true)
         .prompt()
+        .map_err(|_| UtilError::UnableToReadFromConsole)
+}
+
+pub fn input_number(message: impl AsRef<str>) -> Result<usize, UtilError> {
+    inquire::CustomType::<usize>::new(message.as_ref())
+        .with_error_message("Please type a valid number")
+        .with_validator(|value: &usize| {
+            if *value < 4 || *value > 128 {
+                Ok(Validation::Invalid(
+                    "Value should be between 4 to 128".into(),
+                ))
+            } else {
+                Ok(Validation::Valid)
+            }
+        })
+        .with_default(12)
+        .prompt()
+        .map_err(|_| UtilError::UnableToReadFromConsole)
 }
 
 // Set content to clipboard
@@ -155,4 +175,28 @@ pub fn password_input(message: impl AsRef<str>) -> anyhow::Result<Vec<u8>> {
         .prompt()?
         .as_bytes()
         .to_vec())
+}
+
+pub fn print_pass_entry_info(pass_entries: impl AsRef<[PasswordEntry]>) {
+    let pass_entries = pass_entries.as_ref();
+    if pass_entries.is_empty() {
+        colour::e_red_ln!("No entries");
+    } else if pass_entries.len() == 1 {
+        pass_entries.iter().for_each(|entry| {
+            colour::green_ln!(
+                "Service: {}, Username: {}",
+                entry.service,
+                entry.username.clone().unwrap_or("None".to_string())
+            )
+        })
+    } else {
+        pass_entries.iter().enumerate().for_each(|(idx, entry)| {
+            colour::green_ln!(
+                "{}. Service: {}, Username: {}",
+                idx + 1,
+                entry.service,
+                entry.username.clone().unwrap_or("None".to_string())
+            );
+        });
+    }
 }
