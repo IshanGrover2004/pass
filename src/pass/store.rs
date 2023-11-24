@@ -11,7 +11,7 @@ use serde_encrypt::{
 };
 
 use crate::pass::master::{MasterPassword, Verified};
-use crate::pass::util::print_pass_entry_info;
+use crate::pass::util::{copy_to_clipboard, print_pass_entry_info};
 use crate::pass::{entry::PasswordEntry, util::XDG_BASE};
 
 // $HOME/.local/state/pass/passwords.db
@@ -56,6 +56,9 @@ pub enum PasswordStoreError {
 
     #[error("No available entry")]
     NoEntryAvailable,
+
+    #[error("There is nothing to do")]
+    NothingToDo,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -127,8 +130,10 @@ impl PasswordStore {
         });
 
         if !is_dupe {
-            self.passwords.push(entry);
+            self.passwords.push(entry.clone());
             colour::green_ln!("Successfully added entry");
+            colour::green_ln!("\nPassword copied to clipboard");
+            copy_to_clipboard(entry.clone().get_pass_str()).expect("Unable to clipboard");
         } else {
             colour::e_red_ln!("Password entry of same service or username found");
         }
@@ -190,12 +195,13 @@ impl PasswordStore {
         self.passwords
             .clone()
             .into_iter()
-            .filter(|entry| entry.service.to_lowercase() == service.as_ref().to_lowercase())
+            .filter(|entry| entry.service == service.as_ref())
             .collect::<Vec<PasswordEntry>>()
     }
 
     /// Fuzzy find & get [PasswordEntry] by service
     pub fn fuzzy_find(&self, service: impl AsRef<str>) -> Vec<PasswordEntry> {
+        // TODO: Most matched entry should come first
         self.passwords
             .clone()
             .into_iter()

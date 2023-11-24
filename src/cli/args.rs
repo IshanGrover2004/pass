@@ -1,4 +1,5 @@
 use std::borrow::BorrowMut;
+use std::io::Read;
 
 use clap::{Args, Parser, Subcommand};
 use inquire::{CustomType, Password, PasswordDisplayMode};
@@ -6,7 +7,8 @@ use inquire::{CustomType, Password, PasswordDisplayMode};
 use crate::pass::master::{MasterPassword, Verified};
 use crate::pass::store::print_table;
 use crate::pass::util::{
-    ask_for_confirm, input_number, print_pass_entry_info, prompt_string, PASS_DIR_PATH,
+    ask_for_confirm, choose_entry_with_interaction, input_number, print_pass_entry_info,
+    prompt_string, PASS_DIR_PATH,
 };
 use crate::pass::{
     entry::PasswordEntry,
@@ -230,7 +232,7 @@ impl RemoveArgs {
         Ok(())
     }
 
-    fn handle_no_entry_found(&self, manager: PasswordStore) -> Result<(), PasswordStoreError> {
+    fn handle_no_entry_found(&self, mut manager: PasswordStore) -> Result<(), PasswordStoreError> {
         colour::e_red_ln!(
             "Can't find matching entry with service name '{}'",
             self.service
@@ -243,7 +245,19 @@ impl RemoveArgs {
             let fuzzy_search = manager.fuzzy_find(&self.service);
             print_pass_entry_info(&fuzzy_search);
 
-            Self::remove_entry_with_choice(manager, fuzzy_search)?;
+            match choose_entry_with_interaction(fuzzy_search) {
+                Ok(entry) => {
+                    ask_for_confirm("Confirm to remove? ")
+                        .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?
+                        .then(|| -> Result<(), PasswordStoreError> {
+                            manager.remove(vec![entry])?;
+                            Ok(())
+                        });
+                }
+                Err(_) => {
+                    colour::e_red_ln!("there is nothing to do");
+                }
+            };
         } else {
             colour::e_red_ln!("there is nothing to do");
         }
@@ -268,40 +282,23 @@ impl RemoveArgs {
     }
 
     fn handle_multiple_entry_found(
-        manager: PasswordStore,
+        mut manager: PasswordStore,
         found_entry: Vec<PasswordEntry>,
     ) -> Result<(), PasswordStoreError> {
         colour::green_ln!("Found {} matching entries", found_entry.len());
         print_pass_entry_info(&found_entry);
 
-        Self::remove_entry_with_choice(manager, found_entry)?;
+        match choose_entry_with_interaction(found_entry) {
+            Ok(entry) => {
+                manager.remove(vec![entry])?;
+            }
+            Err(_) => {
+                colour::e_red_ln!("there is nothing to do");
+            }
+        };
 
         Ok(())
     }
-
-    fn remove_entry_with_choice(
-        mut manager: PasswordStore,
-        entries: Vec<PasswordEntry>,
-    ) -> Result<(), PasswordStoreError> {
-        let entry_number = CustomType::<usize>::new("Which entry to remove? (eg. 1,2,3): ")
-            .prompt()
-            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
-
-        if entry_number >= 1 && entry_number <= entries.len() {
-            let entry_to_remove = vec![entries
-                .get(entry_number - 1)
-                .expect("Unreachable: Invalid entry number is already handled")
-                .clone()];
-
-            manager.remove(entry_to_remove)?;
-        } else {
-            colour::e_red_ln!("there is nothing to do");
-        }
-
-        Ok(())
-    }
-
-    // fn take_consent_and_remove() {}
 }
 
 #[derive(Args)]
@@ -315,6 +312,9 @@ pub fn list_entries(master_password: MasterPassword<Verified>) -> anyhow::Result
 
     print_table(manager.passwords);
 
+    println!("Not showing passwords due to security reasons");
+    println!("Use '$ pass_rs get <service>' to get password entry info with password");
+
     Ok(())
 }
 
@@ -322,6 +322,9 @@ pub fn list_entries(master_password: MasterPassword<Verified>) -> anyhow::Result
 pub struct GetArgs {
     /// Service name to identify any password
     service: String,
+
+    #[arg(short, long)]
+    print: bool,
 }
 
 impl GetArgs {
@@ -331,13 +334,7 @@ impl GetArgs {
         let result = manager.get(&self.service);
         match result.is_empty() {
             true => {
-                colour::e_red_ln!("No entry found for {}", self.service);
-
-                // let fuzzy_choice = ask_for_confirm("Do you want to fuzzy find it? ");
-
-                /* TODO: Fuzzy search the list if no entry found
-                 * then print that you got "n" no. of response "do you want to show the list?".
-                 * Show the result then and ask what password entry they want to access */
+                colour::e_red_ln!("No entry found for '{}'", self.service);
             }
             false => {
                 colour::green_ln!("{} entry found", result.len());
@@ -363,6 +360,39 @@ impl GetArgs {
                 }
             }
         };
+
+        Ok(())
+    }
+
+    fn handle_no_entry_found(&self, mut manager: PasswordStore) -> Result<(), PasswordStoreError> {
+        colour::e_red_ln!(
+            "Can't find matching entry with service name '{}'",
+            self.service
+        );
+
+        let fuzzy_search_choice = ask_for_confirm("Want to do fuzzy search for this?")
+            .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+
+        if fuzzy_search_choice {
+            let fuzzy_search = manager.fuzzy_find(&self.service);
+            print_pass_entry_info(&fuzzy_search);
+
+            match choose_entry_with_interaction(fuzzy_search) {
+                Ok(entry) => {
+                    let password = entry.get_pass_str();
+                    copy_to_clipboard(password.clone()).expect("Unable to copy to clipboard");
+
+                    if self.print {
+                        colour::yellow_ln!("Password: {}", password);
+                    }
+                }
+                Err(_) => {
+                    colour::e_red_ln!("there is nothing to do");
+                }
+            };
+        } else {
+            colour::e_red_ln!("there is nothing to do");
+        }
 
         Ok(())
     }
