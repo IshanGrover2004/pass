@@ -78,6 +78,10 @@ impl PasswordEntry {
             notes.cell().justify(Justify::Center),
         ]
     }
+
+    pub fn get_pass_str(&self) -> String {
+        String::from_utf8(self.password.password.clone()).expect("Unable to convert u8 to str")
+    }
 }
 
 #[cfg(test)]

@@ -3,9 +3,9 @@ use colour::e_prnt_ln;
 use once_cell::sync::Lazy;
 use ring::rand::{SecureRandom, SystemRandom};
 
-use inquire::{validator::Validation, PasswordDisplayMode, Text};
+use inquire::{validator::Validation, CustomType, PasswordDisplayMode, Text};
 
-use super::entry::PasswordEntry;
+use super::{entry::PasswordEntry, store::PasswordStoreError};
 type InquirePassword<'a> = inquire::Password<'a>;
 
 // Making Base directories by xdg config
@@ -181,6 +181,7 @@ pub fn print_pass_entry_info(pass_entries: impl AsRef<[PasswordEntry]>) {
     let pass_entries = pass_entries.as_ref();
     if pass_entries.is_empty() {
         colour::e_red_ln!("No entries");
+        std::process::exit(1);
     } else if pass_entries.len() == 1 {
         pass_entries.iter().for_each(|entry| {
             colour::green_ln!(
@@ -199,4 +200,30 @@ pub fn print_pass_entry_info(pass_entries: impl AsRef<[PasswordEntry]>) {
             );
         });
     }
+}
+
+pub fn choose_entry_with_interaction(
+    entries: Vec<PasswordEntry>,
+) -> Result<PasswordEntry, PasswordStoreError> {
+    if entries.len() == 1 {
+        return Ok(entries
+            .get(0)
+            .expect("Unreachable: Size of entries is 1 & element will be at 0 idx")
+            .clone());
+    }
+
+    let entry_number = CustomType::<usize>::new("Which entry to remove? (eg. 1,2,3): ")
+        .prompt()
+        .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+
+    if entry_number >= 1 && entry_number <= entries.len() {
+        let chosen_entry = entries
+            .get(entry_number - 1)
+            .expect("Unreachable: Invalid entry number is already handled")
+            .clone();
+
+        return Ok(chosen_entry);
+    }
+
+    Err(PasswordStoreError::NothingToDo)
 }
