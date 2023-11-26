@@ -204,6 +204,7 @@ pub fn print_pass_entry_info(pass_entries: impl AsRef<[PasswordEntry]>) {
 
 pub fn choose_entry_with_interaction(
     entries: Vec<PasswordEntry>,
+    message: impl AsRef<str>,
 ) -> Result<PasswordEntry, PasswordStoreError> {
     if entries.len() == 1 {
         return Ok(entries
@@ -212,7 +213,7 @@ pub fn choose_entry_with_interaction(
             .clone());
     }
 
-    let entry_number = CustomType::<usize>::new("Which entry to remove? (eg. 1,2,3): ")
+    let entry_number = CustomType::<usize>::new(message.as_ref())
         .prompt()
         .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
 

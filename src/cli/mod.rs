@@ -152,19 +152,19 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
         Some(Command::List) => {
             let master = master_password.load()?;
 
-            password_verification(master, list_entries)?;
+            password_verification_and_do_operation(master, list_entries)?;
         }
 
         Some(Command::Get(arg)) => {
             let master = master_password.load()?;
 
-            password_verification(master, |verified| arg.get_entries(verified))?;
+            password_verification_and_do_operation(master, |verified| arg.get_entries(verified))?;
         }
 
         Some(Command::Search(arg)) => {
             let master = master_password.load()?;
 
-            password_verification(master, |verified| arg.fuzzy_search(verified))?;
+            password_verification_and_do_operation(master, |verified| arg.fuzzy_search(verified))?;
         }
 
         Some(Command::Gen(args)) => {
@@ -226,7 +226,10 @@ Type $ pass init for setting up your master password.";
     Ok(())
 }
 
-fn password_verification<F>(mut master: MasterPassword<UnVerified>, func: F) -> anyhow::Result<()>
+fn password_verification_and_do_operation<F>(
+    mut master: MasterPassword<UnVerified>,
+    operation: F,
+) -> anyhow::Result<()>
 where
     F: Fn(MasterPassword<Verified>) -> anyhow::Result<()>,
 {
@@ -235,7 +238,7 @@ where
 
         match master.verify() {
             Ok(Some(verified)) => {
-                func(verified)?;
+                operation(verified)?;
                 break;
             }
             Ok(None) => {

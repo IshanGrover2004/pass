@@ -1,8 +1,7 @@
 use std::borrow::BorrowMut;
-use std::io::Read;
 
 use clap::{Args, Parser, Subcommand};
-use inquire::{CustomType, Password, PasswordDisplayMode};
+use inquire::{Password, PasswordDisplayMode};
 
 use crate::pass::master::{MasterPassword, Verified};
 use crate::pass::store::print_table;
@@ -245,7 +244,10 @@ impl RemoveArgs {
             let fuzzy_search = manager.fuzzy_find(&self.service);
             print_pass_entry_info(&fuzzy_search);
 
-            match choose_entry_with_interaction(fuzzy_search) {
+            match choose_entry_with_interaction(
+                fuzzy_search,
+                "Which entry to remove? (eg. 1,2,3): ",
+            ) {
                 Ok(entry) => {
                     ask_for_confirm("Confirm to remove? ")
                         .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?
@@ -288,7 +290,7 @@ impl RemoveArgs {
         colour::green_ln!("Found {} matching entries", found_entry.len());
         print_pass_entry_info(&found_entry);
 
-        match choose_entry_with_interaction(found_entry) {
+        match choose_entry_with_interaction(found_entry, "Which entry to remove? (eg. 1,2,3): ") {
             Ok(entry) => {
                 manager.remove(vec![entry])?;
             }
@@ -332,39 +334,19 @@ impl GetArgs {
         let manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password)?;
 
         let result = manager.get(&self.service);
-        match result.is_empty() {
-            true => {
-                colour::e_red_ln!("No entry found for '{}'", self.service);
-            }
-            false => {
-                colour::green_ln!("{} entry found", result.len());
 
-                // TODO: ASK user to whether show password from any found entry
-
-                if result.len() == 1 {
-                    print_table(result);
-                } else {
-                    let confirm = ask_for_confirm(format!(
-                        "Do you want to print all {} found entries?",
-                        result.len()
-                    ))?;
-
-                    match confirm {
-                        true => {
-                            print_table(result);
-                        }
-                        false => {
-                            colour::e_blue_ln!("Not showing entries")
-                        }
-                    }
-                }
-            }
-        };
+        if result.is_empty() {
+            self.handle_no_entry_found(manager)?;
+        } else if result.len() == 1 {
+            self.handle_one_entry_found(result)?;
+        } else {
+            self.handle_multiple_entry_found(result)?;
+        }
 
         Ok(())
     }
 
-    fn handle_no_entry_found(&self, mut manager: PasswordStore) -> Result<(), PasswordStoreError> {
+    fn handle_no_entry_found(&self, manager: PasswordStore) -> Result<(), PasswordStoreError> {
         colour::e_red_ln!(
             "Can't find matching entry with service name '{}'",
             self.service
@@ -377,14 +359,12 @@ impl GetArgs {
             let fuzzy_search = manager.fuzzy_find(&self.service);
             print_pass_entry_info(&fuzzy_search);
 
-            match choose_entry_with_interaction(fuzzy_search) {
+            match choose_entry_with_interaction(
+                fuzzy_search,
+                "Which entry password to show? (eg. 1,2,3): ",
+            ) {
                 Ok(entry) => {
-                    let password = entry.get_pass_str();
-                    copy_to_clipboard(password.clone()).expect("Unable to copy to clipboard");
-
-                    if self.print {
-                        colour::yellow_ln!("Password: {}", password);
-                    }
+                    self.print_pass(entry);
                 }
                 Err(_) => {
                     colour::e_red_ln!("there is nothing to do");
@@ -395,6 +375,54 @@ impl GetArgs {
         }
 
         Ok(())
+    }
+
+    fn handle_one_entry_found(
+        &self,
+        found_entry: Vec<PasswordEntry>,
+    ) -> Result<(), PasswordStoreError> {
+        let entry = found_entry
+            .get(0)
+            .expect("Unreachable: Only one entry exists at index 0")
+            .clone();
+
+        // Print the password of found 1 entry
+        self.print_pass(entry);
+
+        Ok(())
+    }
+
+    fn handle_multiple_entry_found(
+        &self,
+        found_entry: Vec<PasswordEntry>,
+    ) -> Result<(), PasswordStoreError> {
+        colour::green_ln!("Found {} matching entries", found_entry.len());
+        print_pass_entry_info(&found_entry);
+
+        match choose_entry_with_interaction(
+            found_entry,
+            "Which entry password to show? (eg. 1,2,3): ",
+        ) {
+            Ok(entry) => {
+                self.print_pass(entry);
+            }
+            Err(_) => {
+                colour::e_red_ln!("there is nothing to do");
+            }
+        };
+
+        Ok(())
+    }
+
+    fn print_pass(&self, entry: PasswordEntry) {
+        let password = entry.get_pass_str();
+
+        copy_to_clipboard(password.clone()).expect("Unable to copy to clipboard");
+        colour::green_ln!("Password copied to clipboard");
+
+        if self.print {
+            colour::yellow_ln!("Password: {}", password);
+        }
     }
 }
 
@@ -416,9 +444,7 @@ impl SearchArgs {
                 // TODO: Make methods like fuzzy_find_by_username & fuzzy_find_by_service
                 colour::green_ln!("Your search results: ");
 
-                result.iter().enumerate().for_each(|(idx, entry)| {
-                    colour::green_ln!("{}. {}", idx + 1, entry.service);
-                });
+                print_table(result);
             }
         };
 
