@@ -203,9 +203,10 @@ pub fn print_pass_entry_info(pass_entries: impl AsRef<[PasswordEntry]>) {
 }
 
 pub fn choose_entry_with_interaction(
-    entries: Vec<PasswordEntry>,
+    entries: impl AsRef<[PasswordEntry]>,
     message: impl AsRef<str>,
 ) -> Result<PasswordEntry, PasswordStoreError> {
+    let entries = entries.as_ref();
     if entries.len() == 1 {
         return Ok(entries
             .get(0)

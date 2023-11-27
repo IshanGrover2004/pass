@@ -86,10 +86,10 @@ pub struct AddArgs {
 impl From<&mut AddArgs> for PasswordEntry {
     fn from(value: &mut AddArgs) -> Self {
         PasswordEntry::new(
-            value.service.to_owned(),
-            value.username.to_owned(),
-            value.password.to_owned(),
-            value.notes.to_owned(),
+            value.service.clone(),
+            value.username.clone(),
+            value.password.clone(),
+            value.notes.clone(),
         )
     }
 }
@@ -115,7 +115,7 @@ impl AddArgs {
         Ok(())
     }
 
-    /// Ask for [AddArgs] variants and set it.
+    /// Ask for [`AddArgs`] variants and set it.
     fn set_params(&mut self) {
         let service = self.service.clone();
 
@@ -126,7 +126,7 @@ impl AddArgs {
             .is_none()
             .then(|| -> Result<(), PasswordStoreError> {
                 self.borrow_mut().username =
-                    prompt_string(format!("Enter username for {}: ", service))
+                    prompt_string(format!("Enter username for {service}: "))
                         .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
                 Ok(())
             });
@@ -143,9 +143,8 @@ impl AddArgs {
         self.notes
             .is_none()
             .then(|| -> Result<(), PasswordStoreError> {
-                self.borrow_mut().notes =
-                    prompt_string(format!("Enter notes for {}: ", service))
-                        .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+                self.borrow_mut().notes = prompt_string(format!("Enter notes for {service}: "))
+                    .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
                 Ok(())
             });
     }
@@ -154,9 +153,10 @@ impl AddArgs {
         let choice = ask_for_confirm("Generate random password?")
             .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
 
-        self.borrow_mut().password = match choice {
-            true => Some(Self::generate_random_password_with_interaction()?),
-            false => Some(Self::generate_new_password()?),
+        self.borrow_mut().password = if choice {
+            Some(Self::generate_random_password_with_interaction()?)
+        } else {
+            Some(Self::generate_new_password()?)
         };
 
         Ok(())
@@ -215,8 +215,7 @@ impl RemoveArgs {
         &mut self,
         master_password: MasterPassword<Verified>,
     ) -> anyhow::Result<()> {
-        let manager =
-            PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password.to_owned())?;
+        let manager = PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password.clone())?;
 
         let found_entry = manager.get(&self.service);
 
@@ -379,9 +378,10 @@ impl GetArgs {
 
     fn handle_one_entry_found(
         &self,
-        found_entry: Vec<PasswordEntry>,
+        found_entry: impl AsRef<[PasswordEntry]>,
     ) -> Result<(), PasswordStoreError> {
         let entry = found_entry
+            .as_ref()
             .get(0)
             .expect("Unreachable: Only one entry exists at index 0")
             .clone();
