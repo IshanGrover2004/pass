@@ -215,8 +215,8 @@ pub fn run_cli(master_password: MasterPassword<Init>) -> anyhow::Result<()> {
 ";
 
             const ABOUT_MSG: &str = r"Welcome to Pass! 🔒
-Type $ pass --help to have a look on all options & commands
-Type $ pass init for setting up your master password.";
+Type $ pass_rs --help to have a look on all options & commands
+Type $ pass_rs init for setting up your master password.";
 
             colour::red_ln!("{ASCII_ART_ABOUT}");
             colour::white_ln!("{ABOUT_MSG}")
