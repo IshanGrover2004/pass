@@ -48,7 +48,7 @@ Options:
 
 ### Usage
 
-[![asciicast](https://asciinema.org/a/ku4nII6uyxqxkYQMxuozIyD4d.svg)](https://asciinema.org/a/ku4nII6uyxqxkYQMxuozIyD4d)
+![Usage](https://github.com/atamakahere-git/pass/blob/master/docs/usage.gif)
 
 ### How it works
 
