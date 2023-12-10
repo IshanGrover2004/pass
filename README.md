@@ -1,4 +1,4 @@
-# pass
+# pass_rs
 
 Pass is a simple and secure password manager written in Rust, designed to help you store and manage your passwords with ease. It offers features like password generation, encryption, and a user-friendly command-line interface.
 
@@ -48,7 +48,7 @@ Options:
 
 ### Usage
 
-TODO: Usage of commands images
+[![asciicast](https://asciinema.org/a/ku4nII6uyxqxkYQMxuozIyD4d.svg)](https://asciinema.org/a/ku4nII6uyxqxkYQMxuozIyD4d)
 
 ### How it works
 
