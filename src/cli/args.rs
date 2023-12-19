@@ -78,6 +78,8 @@ pub struct AddArgs {
     #[clap(short, default_value = None)]
     password: Option<String>,
 
+    random_password: bool,
+
     /// Notes for the account
     #[clap(long, short, default_value = None)]
     notes: Option<String>,
@@ -109,6 +111,16 @@ impl AddArgs {
 
         // New entries are pushed to database
         manager.dump(PASS_ENTRY_STORE.to_path_buf())?;
+
+        if self.random_password {
+            colour::green_ln!("\nPassword copied to clipboard");
+            copy_to_clipboard(
+                self.password
+                    .clone()
+                    .expect("Unreachable: Password is generated randomly"),
+            )
+            .expect("Unable to clipboard");
+        }
 
         // TODO: Impl Drop trait to automatically dump all password entries in DB
 
@@ -159,6 +171,7 @@ impl AddArgs {
             .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
 
         self.borrow_mut().password = if choice {
+            self.random_password = true;
             Some(Self::generate_random_password_with_interaction()?)
         } else {
             Some(Self::generate_new_password()?)
