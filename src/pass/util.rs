@@ -85,10 +85,13 @@ pub fn is_strong_password(password: impl AsRef<str>) -> bool {
     has_lowercase && has_uppercase && has_digit && has_special
 }
 
-pub fn prompt_string(message: impl AsRef<str>) -> anyhow::Result<Option<String>> {
+pub fn prompt_string(
+    message: impl AsRef<str>,
+    help_message: impl AsRef<str>,
+) -> anyhow::Result<Option<String>> {
     Ok(Text::new(message.as_ref())
         .with_formatter(&|i| i.to_string())
-        .with_help_message("Press <Esc> to skip the username")
+        .with_help_message(help_message.as_ref())
         .with_validator(|input: &str| {
             if input.is_empty() {
                 Ok(Validation::Invalid("To skip, press <ESC>".into()))

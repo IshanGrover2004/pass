@@ -125,9 +125,11 @@ impl AddArgs {
         self.username
             .is_none()
             .then(|| -> Result<(), PasswordStoreError> {
-                self.borrow_mut().username =
-                    prompt_string(format!("Enter username for {service}: "))
-                        .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+                self.borrow_mut().username = prompt_string(
+                    format!("Enter username for {service}: "),
+                    "Press <Esc> to skip the username",
+                )
+                .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
                 Ok(())
             });
 
@@ -143,8 +145,11 @@ impl AddArgs {
         self.notes
             .is_none()
             .then(|| -> Result<(), PasswordStoreError> {
-                self.borrow_mut().notes = prompt_string(format!("Enter notes for {service}: "))
-                    .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
+                self.borrow_mut().notes = prompt_string(
+                    format!("Enter notes for {service}: "),
+                    "Press <Esc> to skip the notes",
+                )
+                .map_err(|_| PasswordStoreError::UnableToReadFromConsole)?;
                 Ok(())
             });
     }
