@@ -311,7 +311,7 @@ impl MasterPassword<Verified> {
 
 pub fn handle_master_not_initialised() {
     if !MasterPassword::is_initialised() {
-        println!("Pass is not initialised");
+        colour::e_red_ln!(">> Pass is not initialised");
         println!("Usage: pass_rs init");
         std::process::exit(0);
     }
