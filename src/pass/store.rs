@@ -11,7 +11,7 @@ use serde_encrypt::{
 };
 
 use crate::pass::master::{MasterPassword, Verified};
-use crate::pass::util::{copy_to_clipboard, print_pass_entry_info};
+use crate::pass::util::print_pass_entry_info;
 use crate::pass::{entry::PasswordEntry, util::XDG_BASE};
 
 // $HOME/.local/state/pass/passwords.db
@@ -132,8 +132,6 @@ impl PasswordStore {
         if !is_dupe {
             self.passwords.push(entry.clone());
             colour::green_ln!("Successfully added entry");
-            colour::green_ln!("\nPassword copied to clipboard");
-            copy_to_clipboard(entry.clone().get_pass_str()).expect("Unable to clipboard");
         } else {
             colour::e_red_ln!("Password entry of same service or username found");
         }
