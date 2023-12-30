@@ -6,7 +6,7 @@ Pass is a simple and secure password manager written in Rust, designed to help y
 
 - [Project Features](#project-features)
 - [Installation](#installation)
-- [CLI Commands](#cli-commands)
+- [CLI Interface](#cli-interface)
 - [Usage](#usage)
 - [How it works](#how-it-works)
 - [Contributing](#contributing)
@@ -24,21 +24,27 @@ Pass is a simple and secure password manager written in Rust, designed to help y
 To install `pass`, you need to have Rust and Cargo (Rust's package manager) installed. Then, you can use Cargo to install `pass` as follows:
 
 ```shell
-cargo install --git https://github.com/tanveerraza789/pass.git
+cargo install --git https://github.com/IshanGrover2004/pass.git
 ```
 
-### CLI Commands
+### CLI Interface
 
 ```rust
-Subcommands:
+A easy-to-use CLI password manager
+
+Usage: pass_rs [COMMAND]
+
+Commands:
   init           Initialize the pass
   change-master  Change Master password
   add            Make a new password
   remove         Remove a password
   update         Update a password
   list           List all made password
-  get            Get a password
+  get            Get a password entry
+  search         Fuzzy search passsword entries
   gen            Generate a password
+  reset          Reset features for pass directory
   help           Print this message or the help of the given subcommand(s)
 
 Options:
@@ -48,7 +54,7 @@ Options:
 
 ### Usage
 
-![Usage](https://github.com/atamakahere-git/pass/blob/master/docs/usage.gif)
+![Usage](./docs/usage.gif)
 
 ### How it works
 
@@ -60,4 +66,4 @@ Contributions are welcome! If you’d like to contribute, please feel free to op
 
 ### License
 
-This project is licensed under the MIT License. See the [LICENSE](https://github.com/tanveerraza789/pass/blob/main/LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
