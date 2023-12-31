@@ -63,6 +63,13 @@ Options:
 
 ![storage of passwords](./docs/pass_store_flow.png)
 
+### TODOs
+- [ ] Add test coverage for every functions & modules
+- [ ] Make use of Sqlx crate for creating database
+- [ ] Make repl
+- [ ] Make `--sort` flag for list entries in sorted manner
+- [ ] Refacter code to look more cleaner code(I guess done)
+
 ### Contributing
 
 Contributions are welcome! If you’d like to contribute, please feel free to open an issue or submit a pull request. Checkout our [CONTRIBUTING](./CONTRIBUTING.md) file for details on how to contribute.
