@@ -212,7 +212,7 @@ pub fn choose_entry_with_interaction(
     let entries = entries.as_ref();
     if entries.len() == 1 {
         return Ok(entries
-            .get(0)
+            .first()
             .expect("Unreachable: Size of entries is 1 & element will be at 0 idx")
             .clone());
     }

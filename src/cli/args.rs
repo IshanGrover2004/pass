@@ -400,7 +400,7 @@ impl GetArgs {
     ) -> Result<(), PasswordStoreError> {
         let entry = found_entry
             .as_ref()
-            .get(0)
+            .first()
             .expect("Unreachable: Only one entry exists at index 0")
             .clone();
 
