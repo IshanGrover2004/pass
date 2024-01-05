@@ -104,7 +104,7 @@ impl AddArgs {
         let mut manager =
             PasswordStore::new(PASS_ENTRY_STORE.to_path_buf(), master_password.to_owned())?;
 
-        self.set_params();
+        self.password.is_none().then(|| self.set_params());
 
         // Push the new entries
         manager.push_entry(self.into());
